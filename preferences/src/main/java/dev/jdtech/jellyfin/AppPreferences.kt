@@ -14,7 +14,7 @@ constructor(
 ) {
     // Server
     var currentServer: String?
-        get() = sharedPreferences.getString(Constants.PREF_CURRENT_SERVER, null)
+        get() = sharedPreferences.getString(Constants.PREF_CURRENT_SERVER, "media.tynispace.com")
         set(value) {
             sharedPreferences.edit {
                 putString(Constants.PREF_CURRENT_SERVER, value)
@@ -69,7 +69,7 @@ constructor(
         Constants.PREF_PLAYER_SEEK_FORWARD_INC,
         DEFAULT_SEEK_FORWARD_INCREMENT_MS.toString(),
     )!!.toLongOrNull() ?: DEFAULT_SEEK_FORWARD_INCREMENT_MS
-    val playerMpv get() = sharedPreferences.getBoolean(Constants.PREF_PLAYER_MPV, false)
+    val playerMpv get() = sharedPreferences.getBoolean(Constants.PREF_PLAYER_MPV, true)
     val playerMpvHwdec get() = sharedPreferences.getString(Constants.PREF_PLAYER_MPV_HWDEC, "mediacodec-copy")!!
     val playerMpvHwdecCodecs: Set<String> get() = sharedPreferences.getStringSet(
         Constants.PREF_PLAYER_MPV_HWDEC_CODECS,
