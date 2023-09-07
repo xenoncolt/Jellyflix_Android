@@ -42,7 +42,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
-        findPreference<Preference>("Request Movie")?.setOnPreferenceClickListener {
+        findPreference<Preference>("requestContent")?.setOnPreferenceClickListener {
             val intent = Intent(
                 Intent.ACTION_VIEW,
                 Uri.parse("https://request.tynispace.com"),

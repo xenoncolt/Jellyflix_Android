@@ -59,8 +59,8 @@
     <PreferenceCategory app:title="@string/about">
 
         <Preference
-            app:key="privacyPolicy"
-            app:title="@string/privacy_policy" />
+            app:key="requestContent"
+            app:title="@string/request_content" />
 
         <Preference
             app:key="appInfo"
