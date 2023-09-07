@@ -42,10 +42,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
-        findPreference<Preference>("privacyPolicy")?.setOnPreferenceClickListener {
+        findPreference<Preference>("Request Movie")?.setOnPreferenceClickListener {
             val intent = Intent(
                 Intent.ACTION_VIEW,
-                Uri.parse("https://github.com/jarnedemeulemeester/findroid/blob/main/PRIVACY"),
+                Uri.parse("https://request.tynispace.com"),
             )
             startActivity(intent)
             true
