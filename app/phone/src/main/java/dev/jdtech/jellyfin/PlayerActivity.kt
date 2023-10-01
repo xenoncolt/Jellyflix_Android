@@ -44,6 +44,7 @@ import dev.jdtech.jellyfin.utils.PreviewScrubListener
 import dev.jdtech.jellyfin.viewmodels.PlayerActivityViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.lang.IllegalArgumentException
 import javax.inject.Inject
 import dev.jdtech.jellyfin.player.video.R as PlayerVideoR
 
@@ -370,7 +371,9 @@ class PlayerActivity : BasePlayerActivity() {
             binding.playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
 
-        enterPictureInPictureMode(pipParams())
+        try {
+            enterPictureInPictureMode(pipParams())
+        } catch (_: IllegalArgumentException) { }
     }
 
     override fun onPictureInPictureModeChanged(
