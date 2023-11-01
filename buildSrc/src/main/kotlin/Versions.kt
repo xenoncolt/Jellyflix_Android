@@ -5,7 +5,7 @@ object Versions {
     const val appName = "0.2.1"
 
     const val compileSdk = 34
-    const val buildTools = "34.0.0."
+    const val buildTools = "34.0.0"
     const val minSdk = 28
     const val targetSdk = 34
 
