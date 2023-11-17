@@ -46,7 +46,7 @@ object Constants {
     const val PREF_DISPLAY_EXTRA_INFO = "pref_display_extra_info"
 
     // caching
-    const val DEFAULT_CACHE_SIZE = 20
+    const val DEFAULT_CACHE_SIZE = 50
 
     // favorites
     const val FAVORITE_TYPE_MOVIES = 0
