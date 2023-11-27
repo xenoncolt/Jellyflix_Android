@@ -1,13 +1,12 @@
 package dev.jdtech.jellyfin.fragments
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.jdtech.jellyfin.AppPreferences
+import dev.jdtech.jellyfin.R
 import dev.jdtech.jellyfin.utils.restart
 import javax.inject.Inject
 import dev.jdtech.jellyfin.core.R as CoreR
@@ -43,11 +42,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
 
         findPreference<Preference>("requestContent")?.setOnPreferenceClickListener {
-            val intent = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://request.tynispace.com"),
-            )
-            startActivity(intent)
+            val bundle = Bundle()
+            bundle.putString("url", "https://request.tynispace.com")
+            findNavController().navigate(R.id.WebViewFragment, bundle)
             true
         }
 

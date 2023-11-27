@@ -405,5 +405,13 @@
             app:popEnterAnim="@anim/nav_default_pop_enter_anim"
             app:popExitAnim="@anim/nav_default_pop_exit_anim" />
     </fragment>
+    <fragment
+        android:id="@+id/WebViewFragment"
+        android:name="dev.jdtech.jellyfin.fragments.WebViewFragment"
+        android:label="Request Content" >
+        <action
+            android:id="@+id/action_WebViewFragment_to_twoPaneSettingsFragment2"
+            app:destination="@id/twoPaneSettingsFragment" />
+    </fragment>
 
 </navigation>

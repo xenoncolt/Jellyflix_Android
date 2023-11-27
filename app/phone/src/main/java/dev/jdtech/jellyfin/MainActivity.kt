@@ -92,9 +92,16 @@ class MainActivity : AppCompatActivity() {
 
         navController.addOnDestinationChangedListener { _, destination, _ ->
             binding.navView.visibility = when (destination.id) {
-                R.id.twoPaneSettingsFragment, R.id.serverSelectFragment, R.id.addServerFragment, R.id.loginFragment, com.mikepenz.aboutlibraries.R.id.about_libraries_dest, R.id.usersFragment, R.id.serverAddressesFragment -> View.GONE
+                R.id.twoPaneSettingsFragment, R.id.serverSelectFragment, R.id.addServerFragment, R.id.loginFragment, com.mikepenz.aboutlibraries.R.id.about_libraries_dest, R.id.usersFragment, R.id.serverAddressesFragment, R.id.WebViewFragment -> View.GONE
                 else -> View.VISIBLE
             }
+//            if (destination.id == R.id.WebViewFragment) {
+////                supportActionBar?.title = "" // Remove title
+////                supportActionBar?.setDisplayHomeAsUpEnabled(false) // Remove back icon
+//                supportActionBar?.hide() // hide the entire bar
+//            } else {
+//                supportActionBar?.show() // show the toolbars for others
+//            }
             if (destination.id == com.mikepenz.aboutlibraries.R.id.about_libraries_dest) {
                 binding.mainToolbar.title =
                     getString(CoreR.string.app_info)
