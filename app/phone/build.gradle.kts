@@ -43,10 +43,11 @@ android {
             applicationIdSuffix = ".staging"
         }
     }
+    project.setProperty("archivesBaseName", "Jellyflix")
 
     flavorDimensions += "variant"
     productFlavors {
-        register("libre") {
+        register("android") {
             dimension = "variant"
             isDefault = true
         }
