@@ -42,6 +42,7 @@ import dev.jdtech.jellyfin.mpv.TrackType
 import dev.jdtech.jellyfin.utils.PlayerGestureHelper
 import dev.jdtech.jellyfin.utils.PreviewScrubListener
 import dev.jdtech.jellyfin.viewmodels.PlayerActivityViewModel
+import dev.jdtech.jellyfin.viewmodels.PlayerEvents
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.lang.IllegalArgumentException
@@ -170,8 +171,10 @@ class PlayerActivity : BasePlayerActivity() {
                 }
 
                 launch {
-                    viewModel.navigateBack.collect {
-                        if (it) finish()
+                    viewModel.eventsChannelFlow.collect { event ->
+                        when (event) {
+                            is PlayerEvents.NavigateBack -> finish()
+                        }
                     }
                 }
             }
