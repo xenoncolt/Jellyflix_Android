@@ -1,9 +1,13 @@
 package dev.jdtech.jellyfin
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph
 import androidx.navigation.fragment.NavHostFragment
@@ -24,6 +28,7 @@ import dev.jdtech.jellyfin.viewmodels.MainViewModel
 import dev.jdtech.jellyfin.work.SyncWorker
 import javax.inject.Inject
 import dev.jdtech.jellyfin.core.R as CoreR
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -45,6 +50,23 @@ class MainActivity : AppCompatActivity() {
         scheduleUserDataSync()
         applyTheme()
         setupActivity()
+
+        // Update Checker
+        lifecycleScope.launch {
+            if (UpdateChecker.isUpdateAvailable()) {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Update Available")
+                    .setMessage("An update is available for Jellyflix. Would you like to download it?")
+                    .setPositiveButton("Yes") { _, _ ->
+                        val author = "xenoncolt"
+                        val repo = "Jellyflix_Android"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$author/$repo/releases/latest"))
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("Not Now", null)
+                    .show()
+            }
+        }
     }
 
     @OptIn(NavigationUiSaveStateControl::class)
