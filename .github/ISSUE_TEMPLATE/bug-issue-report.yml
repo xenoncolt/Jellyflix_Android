@@ -41,7 +41,7 @@ body:
         Copy all the error code and paste it here.
         Make sure that they don't contain any sensitive information like your IP address or authentication tokens or passwords.
       placeholder: "Paste your logs here."
-      render: shell
+      render: Shell
     validations:
       required: false
   - type: input
