@@ -1,0 +1,80 @@
+name: Bug Report
+description: Create a report to help us improve
+title: "[BUG/ISSUE Title]: "
+labels: ["bug"]
+#projects: ["xenoncolt/Jellyflix_Android"]
+assignees:
+  - xenoncolt
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Please fill out the sections below to help us understand and fix the issue.
+  -  type: checkboxes
+     attributes:
+       label: "Is there an existing issue for this bug/issue?"
+       description: "Please search to see if an issue already exists for the bug/issue you encountered."
+       options:
+         - label: "I have searched the issues and found no existing issue."
+           required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "Describe the bug/issue"
+      description: "A clear and concise description of the bug, including steps to reproduce it and the normally expected behavior."
+      placeholder: "I was trying to do [something] and expected [something] to happend, but instead [something else] happened."
+    validations:
+      required: true
+  - type: file
+    id: files
+    attributes:
+      label: "Screenshots or Videos"
+      description: "Please provide some screenshots or videos to help us understand the issue better."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs"
+      description: |
+        Please paste your client logs (logcat) here. 
+        Copy all the error code and paste it here.
+        Make sure that they don't contain any sensitive information like your IP address or authentication tokens or passwords.
+      placeholder: "Paste your logs here."
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: app-version
+    attributes:
+      label: "Application Version"
+      description: "The version of the installed Jellyflix Android app."
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: "Select the platform"
+      description: "Select the platform where you encountered the bug/issue."
+      options:
+        - Android
+        - Android TV
+        - Tablet
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: "Device Information"
+      description: "Manufacturer, Model"
+      placeholder: "Samsung Galaxy S10, VIVO y11"
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: "Additional Information (optional)"
+      placeholder: "Add any other context about the problem here."
+    validations:
+      required: false
