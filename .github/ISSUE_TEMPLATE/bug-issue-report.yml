@@ -25,7 +25,7 @@ body:
       placeholder: "I was trying to do [something] and expected [something] to happend, but instead [something else] happened."
     validations:
       required: true
-  - type: file
+  - type: textarea
     id: files
     attributes:
       label: "Screenshots or Videos"
