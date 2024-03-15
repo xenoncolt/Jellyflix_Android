@@ -15,7 +15,7 @@
 - [x] Offline playback / Downloads
 - [x] ExoPlayer
 - [x] Supported media items: movies, series, seasons, episodes
-- [ ] New releases notifications
+- [x] New releases notifications
 
 # Application For
 ## Mobile:
