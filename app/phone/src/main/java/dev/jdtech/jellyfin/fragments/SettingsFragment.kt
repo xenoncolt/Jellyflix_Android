@@ -43,7 +43,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         findPreference<Preference>("requestContent")?.setOnPreferenceClickListener {
             val bundle = Bundle()
-            bundle.putString("url", "https://request.tynispace.com")
+            bundle.putString("url", "https://request.oporajita.win")
             findNavController().navigate(R.id.WebViewFragment, bundle)
             true
         }
