@@ -14,7 +14,7 @@ constructor(
 ) {
     // Server
     var currentServer: String?
-        get() = sharedPreferences.getString(Constants.PREF_CURRENT_SERVER, "media.tynispace.com")
+        get() = sharedPreferences.getString(Constants.PREF_CURRENT_SERVER, "stream.oporajita.com")
         set(value) {
             sharedPreferences.edit {
                 putString(Constants.PREF_CURRENT_SERVER, value)
