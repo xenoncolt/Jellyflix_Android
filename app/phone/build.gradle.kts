@@ -10,12 +10,12 @@ plugins {
 }
 
 android {
-    namespace = "dev.jdtech.jellyfin"
+    namespace = "dev.xenoncolt.jellyflix"
     compileSdk = Versions.compileSdk
     buildToolsVersion = Versions.buildTools
 
     defaultConfig {
-        applicationId = "dev.jdtech.jellyfin"
+        applicationId = "dev.xenoncolt.jellyflix"
         minSdk = Versions.minSdk
         targetSdk = Versions.targetSdk
 
