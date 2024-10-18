@@ -40,7 +40,7 @@ class SyncWorker @AssistedInject constructor(
                 val serverAddress = serverWithAddressesAndUsers.addresses.firstOrNull { it.id == server.currentServerAddressId } ?: continue
                 for (user in serverWithAddressesAndUsers.users) {
                     jellyfinApi.apply {
-                        api.baseUrl = "http://media.tynispace.com"
+                        api.baseUrl = serverAddress.toString()
                         api.accessToken = user.accessToken
                         userId = user.id
                     }
