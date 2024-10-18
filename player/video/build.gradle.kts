@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.jdtech.jellyfin.player.video"
+    namespace = "dev.xenoncolt.jellyflix.player.video"
     compileSdk = Versions.compileSdk
     buildToolsVersion = Versions.buildTools
 

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsLanguageFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsLanguageFragment"
         app:title="@string/settings_category_language"
         app:icon="@drawable/ic_languages"/>
 
@@ -23,32 +23,32 @@
         app:title="@string/addresses" />
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsAppearanceFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsAppearanceFragment"
         app:icon="@drawable/ic_palette"
         app:title="@string/settings_category_appearance" />
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsDownloadsFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsDownloadsFragment"
         app:icon="@drawable/ic_download"
         app:title="@string/settings_category_download"/>
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsPlayerFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsPlayerFragment"
         app:icon="@drawable/ic_play"
         app:title="@string/settings_category_player" />
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsDeviceFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsDeviceFragment"
         app:title="@string/settings_category_device"
         app:icon="@drawable/ic_smartphone" />
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsNetworkFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsNetworkFragment"
         app:title="@string/settings_category_network"
         app:icon="@drawable/ic_network"/>
 
     <Preference
-        app:fragment="dev.jdtech.jellyfin.fragments.SettingsCacheFragment"
+        app:fragment="dev.xenoncolt.jellyflix.fragments.SettingsCacheFragment"
         app:title="@string/settings_category_cache" />
 
     <SwitchPreferenceCompat

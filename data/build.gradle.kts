@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.jdtech.jellyfin.data"
+    namespace = "dev.xenoncolt.jellyflix.data"
     compileSdk = Versions.compileSdk
     buildToolsVersion = Versions.buildTools
 
