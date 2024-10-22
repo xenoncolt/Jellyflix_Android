@@ -1,10 +1,11 @@
 package dev.xenoncolt.jellyflix
 
 import android.content.Intent
-import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -24,6 +25,7 @@ import com.google.android.material.navigation.NavigationBarView
 import dagger.hilt.android.AndroidEntryPoint
 import dev.xenoncolt.jellyflix.database.ServerDatabaseDao
 import dev.xenoncolt.jellyflix.databinding.ActivityMainBinding
+import dev.xenoncolt.jellyflix.update.UpdateManager
 import dev.xenoncolt.jellyflix.viewmodels.MainViewModel
 import dev.xenoncolt.jellyflix.work.SyncWorker
 import javax.inject.Inject
@@ -45,6 +47,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var navController: NavController
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         scheduleUserDataSync()
@@ -53,15 +56,35 @@ class MainActivity : AppCompatActivity() {
 
         // Update Checker
         lifecycleScope.launch {
-            if (UpdateChecker.isUpdateAvailable()) {
+            val abi = UpdateManager.getDeviceAbi()
+            val apkUrl = UpdateManager.getApkUrl(abi)
+
+            if (UpdateManager.isUpdateAvailable()) {
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("Update Available")
                     .setMessage("An update is available for Jellyflix. Would you like to download it?")
                     .setPositiveButton("Yes") { _, _ ->
-                        val author = "xenoncolt"
-                        val repo = "Jellyflix_Android"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$author/$repo/releases/latest"))
-                        startActivity(intent)
+//                        val author = "xenoncolt"
+//                        val repo = "Jellyflix_Android"
+//                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$author/$repo/releases/latest"))
+//                        startActivity(intent)
+//                        if (apkUrl != null) {
+//                            UpdateManager.downloadAndInstallApk(this@MainActivity, apkUrl)
+//                        }
+                        if (apkUrl != null) {
+                            UpdateManager.downloadAndInstallApk(this@MainActivity, apkUrl)
+                        }
+//                        if (packageManager.canRequestPackageInstalls()) {
+//                            apkUrl.let {
+//                                if (apkUrl != null) {
+//                                    UpdateManager.downloadAndInstallApk(this@MainActivity, apkUrl)
+//                                }
+//                            }
+//                        } else {
+//                            if (apkUrl != null) {
+//                                UpdateManager.requestInstallPermission(this@MainActivity, apkUrl)
+//                            }
+//                        }
                     }
                     .setNegativeButton("Not Now", null)
                     .show()
