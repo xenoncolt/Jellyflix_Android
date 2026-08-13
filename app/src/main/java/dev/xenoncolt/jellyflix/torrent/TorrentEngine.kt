@@ -311,9 +311,24 @@ class TorrentEngine @Inject constructor(
         return AddTorrentParams(params)
     }
 
+    /**
+     * The native session, or a readable failure if it isn't up yet.
+     *
+     * SessionManager keeps its native session in a field that is null until
+     * start() assigns it, and swig() just hands that field back. Adding through
+     * a null session fails two different ways, both bad: add_torrent throws
+     * "Attempt to invoke virtual method ... session_handle.add_torrent ... on a
+     * null object reference" straight into the UI, while download() begins with
+     * an `if (session == null) return` and no-ops silently — a download row that
+     * exists and never moves. Neither says what is actually wrong, so every add
+     * goes through here first.
+     */
+    private fun requireSession() = session.swig()
+        ?: error("Torrent session is not running yet")
+
     private fun addResolved(params: AddTorrentParams, infoHash: String) {
         val errorCode = error_code()
-        val swigHandle = session.swig().add_torrent(params.swig(), errorCode)
+        val swigHandle = requireSession().add_torrent(params.swig(), errorCode)
 
         if (errorCode.value() != 0) {
             error(errorCode.message())
@@ -338,6 +353,7 @@ class TorrentEngine @Inject constructor(
         sequential: Boolean,
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
+            requireSession()
             saveDir.mkdirs()
             val info = TorrentInfo(bytes)
             val infoHash = info.infoHash().toHex().lowercase()
@@ -483,6 +499,7 @@ class TorrentEngine @Inject constructor(
         sequential: Boolean,
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
+            requireSession()
             val info = loadMetadata(infoHash) ?: error("No usable metadata for $infoHash")
             saveDir.mkdirs()
             session.download(

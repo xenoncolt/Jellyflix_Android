@@ -1,9 +1,15 @@
 package dev.xenoncolt.jellyflix.torrent
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
+import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
@@ -18,6 +24,48 @@ import java.io.File
  * default folder rather than starting a download that will fail on first write.
  */
 object StorageLocations {
+
+    /**
+     * Whether we can write to a folder outside our own app directory at all.
+     *
+     * This is the whole reason picking a folder used to fail with "Can't write
+     * downloads to that folder" no matter what the user chose. From Android 11
+     * the folder picker's grant is a SAF grant: it lets you write through
+     * `DocumentFile`/`ContentResolver`, and nothing else. libtorrent writes with
+     * plain `open`/`write`, which SAF does not cover, so the write probe was
+     * always going to fail — the picker just handed us a path we had no POSIX
+     * access to. "All files access" is the one permission that restores real
+     * filesystem access, which is why every sideloaded torrent client asks for
+     * it. Below API 30 the legacy WRITE_EXTERNAL_STORAGE permission does the
+     * same job, and API 29 is covered by requestLegacyExternalStorage.
+     */
+    fun hasFullStorageAccess(context: Context): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
+    /**
+     * The settings page that grants it. There is no runtime prompt for this one —
+     * it can only be toggled in Settings, so we have to send the user there.
+     *
+     * The per-app page is the polite one but is missing on some OEM builds, so
+     * the caller falls back to the full list.
+     */
+    fun fullStorageAccessIntents(context: Context): List<Intent> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
+        return listOf(
+            Intent(
+                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                Uri.parse("package:${context.packageName}"),
+            ),
+            Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+        )
+    }
 
     /** Where downloads go when the user hasn't chosen anything. */
     fun defaultRoot(context: Context): File =

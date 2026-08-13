@@ -67,8 +67,16 @@ class DownloadsViewModel @Inject constructor(
 
             val resolved = StorageLocations.resolve(context, uri.toString())
             if (resolved == null) {
-                _message.value = "Can't write downloads to that folder. " +
-                    "Pick one on internal storage or an SD card, or leave it on the default."
+                // Distinguish the two failures. Without All files access *every*
+                // folder fails, so telling the user to pick a different one — as
+                // this used to — sends them round a loop they cannot win.
+                _message.value = if (!StorageLocations.hasFullStorageAccess(context)) {
+                    "Downloads need \"All files access\" to write outside the app's " +
+                        "own folder. Grant it in Settings, then pick the folder again."
+                } else {
+                    "Can't write downloads to that folder. " +
+                        "Pick one on internal storage or an SD card, or leave it on the default."
+                }
                 return@launch
             }
             settings.setDownloadTreeUri(uri.toString())

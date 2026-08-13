@@ -9,9 +9,34 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!--
+      libtorrent writes through plain POSIX calls, so a folder the user picks
+      outside our own app directory is just a path — the folder picker's SAF
+      grant does nothing for it. Up to API 29 the legacy permission gives us the
+      real filesystem access that needs (paired with requestLegacyExternalStorage
+      below, which is what keeps it working on API 29).
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <!--
+      From API 30 the legacy permission is gone and "All files access" is the
+      only thing that lets us write to a chosen folder. Without it every folder
+      the user picks fails its write probe, which is why downloads could never
+      leave app storage. Play Store distribution would need a declaration for
+      this; the app ships as a sideloaded APK with its own updater.
+    -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
     <!-- Needed so the in-app updater can hand its APK to the system installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+      requestLegacyExternalStorage is for API 29 only, where it is what keeps
+      WRITE_EXTERNAL_STORAGE meaningful for libtorrent's POSIX writes. It is
+      ignored from API 30, where All files access takes over.
+    -->
     <application
         android:name=".JellyflixApp"
         android:allowBackup="true"
@@ -20,6 +45,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
+        android:requestLegacyExternalStorage="true"
         android:theme="@style/Theme.Jellyflix"
         tools:targetApi="34">
 

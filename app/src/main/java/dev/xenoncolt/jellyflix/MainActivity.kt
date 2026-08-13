@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import dev.xenoncolt.jellyflix.data.repo.AccountRepository
 import dev.xenoncolt.jellyflix.ui.nav.JellyflixNavHost
+import dev.xenoncolt.jellyflix.ui.permissions.PermissionsGate
 import dev.xenoncolt.jellyflix.ui.theme.JellyflixTheme
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN_DOWNLOADS = "open_downloads"
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         enableEdgeToEdge()
@@ -40,6 +42,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             JellyflixTheme {
                 JellyflixNavHost(startOnDownloads = startOnDownloads)
+                // Over the nav host, so the prompt is the first thing the user
+                // deals with — both permissions are needed before a download can
+                // work, and finding that out mid-download is too late.
+                PermissionsGate()
             }
         }
     }

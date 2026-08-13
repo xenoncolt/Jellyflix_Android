@@ -94,6 +94,8 @@ class TorrentRepository @Inject constructor(
         source: DownloadSource,
         season: Int?,
     ): Result<String> {
+        ensureEngineRunning()
+
         val sequential = settings.sequentialDownload.first()
         val saveDir = File(downloadRoot(), sanitize(media.title)).apply { mkdirs() }
 
@@ -230,8 +232,32 @@ class TorrentRepository @Inject constructor(
             }
     }
 
+    /**
+     * Brings the session up before anything is handed to it.
+     *
+     * [TorrentService] owns the engine's lifecycle, but it is started *after*
+     * the add — and starting a service is asynchronous, so on the first
+     * download of a process the add reached a session that did not exist yet.
+     * libtorrent4j holds its native session in a field that is null until
+     * start(), and the two add paths fail differently on it: a magnet threw
+     * "Attempt to invoke virtual method ... session_handle.add_torrent ... on a
+     * null object reference" at the user, while a .torrent file was dropped
+     * without a word and left a row stuck at 0%.
+     *
+     * [TorrentEngine.start] is guarded by its own flag and mutex, so calling it
+     * here as well as from the service costs nothing when it is already up.
+     */
+    private suspend fun ensureEngineRunning() {
+        if (engine.isRunning) return
+        engine.start(
+            maxDownloadKbps = settings.maxDownloadKbps.first(),
+            maxUploadKbps = settings.maxUploadKbps.first(),
+        )
+    }
+
     /** Returns true when the torrent made it back into the session. */
     private suspend fun reAdd(entity: DownloadEntity): Boolean {
+        ensureEngineRunning()
         val saveDir = File(entity.savePath).apply { mkdirs() }
         val magnet = entity.magnetUri
 

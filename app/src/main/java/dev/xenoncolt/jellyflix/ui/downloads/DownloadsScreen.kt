@@ -1,5 +1,7 @@
 package dev.xenoncolt.jellyflix.ui.downloads
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,7 +52,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xenoncolt.jellyflix.core.Format
 import dev.xenoncolt.jellyflix.core.Tmdb
 import dev.xenoncolt.jellyflix.data.local.DownloadState
+import androidx.compose.ui.platform.LocalContext
 import dev.xenoncolt.jellyflix.torrent.DownloadUi
+import dev.xenoncolt.jellyflix.torrent.StorageLocations
+import dev.xenoncolt.jellyflix.ui.permissions.AppPermission
+import dev.xenoncolt.jellyflix.ui.permissions.AppPermissions
 import dev.xenoncolt.jellyflix.ui.components.EmptyState
 import dev.xenoncolt.jellyflix.ui.components.PageBackground
 import dev.xenoncolt.jellyflix.ui.components.RemoteImage
@@ -68,10 +74,45 @@ fun DownloadsScreen(
     val location by viewModel.downloadLocation.collectAsStateWithLifecycle()
 
     var pendingRemoval by remember { mutableStateOf<DownloadUi?>(null) }
+    val context = LocalContext.current
 
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri -> viewModel.setDownloadLocation(uri) }
+
+    // The picked folder is a plain path libtorrent writes to with POSIX calls,
+    // and the picker's own SAF grant does nothing for that. Below API 30 the
+    // legacy permission is what grants it; ask, then open the picker either way —
+    // a refusal just means the write probe rejects the folder and says so.
+    val legacyStoragePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { folderPicker.launch(null) }
+
+    // From API 30 the equivalent is All files access, which has no runtime
+    // prompt — it can only be granted in Settings, so we send the user there and
+    // continue to the picker when they come back.
+    val fullStorageAccess = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { folderPicker.launch(null) }
+
+    val pickFolder = {
+        when {
+            StorageLocations.hasFullStorageAccess(context) ->
+                // Null start URI just opens the picker at its default.
+                folderPicker.launch(null)
+
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.R ->
+                legacyStoragePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+
+            else -> {
+                // Some OEM builds are missing the per-app page, so walk the
+                // fallbacks and stop at the first one that opens.
+                AppPermissions.settingsIntents(context, AppPermission.Storage)
+                    .any { runCatching { fullStorageAccess.launch(it) }.isSuccess }
+                Unit
+            }
+        }
+    }
 
     PageBackground(modifier = modifier) {
         LazyColumn(
@@ -94,10 +135,7 @@ fun DownloadsScreen(
                     location = location,
                     onWifiOnly = viewModel::setWifiOnly,
                     onSequential = viewModel::setSequential,
-                    onPickLocation = {
-                        // Null start URI just opens the picker at its default.
-                        folderPicker.launch(null)
-                    },
+                    onPickLocation = pickFolder,
                     onResetLocation = viewModel::resetDownloadLocation,
                 )
             }
