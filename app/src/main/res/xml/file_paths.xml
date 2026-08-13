@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Finished downloads, for the "open with" hand-off to a video player. -->
+    <external-files-path name="downloads" path="downloads/" />
+    <files-path name="internal" path="." />
+    <!-- Downloaded APKs for the in-app updater. -->
+    <cache-path name="updates" path="updates/" />
+    <!-- A user-chosen folder can be anywhere on external storage. -->
+    <external-path name="external" path="." />
+</paths>

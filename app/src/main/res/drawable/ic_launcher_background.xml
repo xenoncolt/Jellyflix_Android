@@ -1,0 +1,23 @@
+<!--
+  Launcher icon background: the deep navy from the Jellyflix brand sheet, with a
+  soft purple glow behind where the mark sits.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path android:pathData="M0,0 h108 v108 h-108 z" android:fillColor="#0A1024" />
+
+    <path android:pathData="M0,0 h108 v108 h-108 z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:centerX="54" android:centerY="54" android:gradientRadius="58"
+                android:type="radial">
+                <item android:offset="0" android:color="#3D7C3AED" />
+                <item android:offset="1" android:color="#000A1024" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

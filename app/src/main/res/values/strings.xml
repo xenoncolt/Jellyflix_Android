@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Jellyflix</string>
+    <string name="torrent_channel_name">Downloads</string>
+    <string name="torrent_channel_desc">Active torrent download progress</string>
+    <string name="update_channel_name">App updates</string>
+    <string name="update_channel_desc">Download progress for app updates</string>
+</resources>

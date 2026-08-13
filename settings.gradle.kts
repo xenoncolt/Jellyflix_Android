@@ -1,14 +1,24 @@
-include(":app:phone")
-include(":core")
-include(":data")
-include(":preferences")
-include(":player:core")
-include(":player:video")
-
 pluginManagement {
     repositories {
-        gradlePluginPortal()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
-        google()
+        gradlePluginPortal()
     }
 }
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "Jellyflix"
+include(":app")

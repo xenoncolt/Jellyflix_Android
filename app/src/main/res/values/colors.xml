@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Design tokens from MOBILE-HANDOFF section 9.
+  The Compose layer reads dev.xenoncolt.movhubs.ui.theme.Tokens instead; these
+  exist only for the XML surfaces Android forces on us (splash, notifications).
+-->
+<resources>
+    <color name="ink_950">#FF0B1224</color>
+    <color name="ink_900">#FF101A30</color>
+    <color name="ink_850">#FF142038</color>
+    <color name="ink_800">#FF1A2742</color>
+    <color name="brand_500">#FF2F6FE4</color>
+    <color name="brand_300">#FF7AA6FF</color>
+    <color name="series_500">#FF7C3AED</color>
+    <color name="accent_500">#FFF5A524</color>
+
+    <!-- Jellyflix brand: the logo gradient runs purple -> blue over deep navy. -->
+    <color name="brand_navy">#FF0A1024</color>
+    <color name="brand_purple">#FF8B3DFF</color>
+    <color name="brand_blue">#FF4A7DFF</color>
+</resources>
