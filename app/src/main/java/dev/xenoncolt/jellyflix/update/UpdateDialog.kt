@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xenoncolt.jellyflix.core.Format
+import dev.xenoncolt.jellyflix.ui.components.MarkdownText
 import dev.xenoncolt.jellyflix.ui.theme.Tokens
 
 /**
@@ -73,13 +74,15 @@ fun UpdateDialog(viewModel: UpdateViewModel = hiltViewModel()) {
                 )
 
                 if (update.notes.isNotBlank()) {
-                    Text(
-                        text = update.notes,
+                    // Release bodies are Markdown, so headings, lists and code
+                    // fences are rendered rather than shown as their source.
+                    MarkdownText(
+                        markdown = update.notes,
+                        modifier = Modifier
+                            .heightIn(max = 220.dp)
+                            .verticalScroll(rememberScrollState()),
                         style = MaterialTheme.typography.bodySmall,
                         color = Tokens.Mist400,
-                        modifier = Modifier
-                            .heightIn(max = 180.dp)
-                            .verticalScroll(rememberScrollState()),
                     )
                 }
 
