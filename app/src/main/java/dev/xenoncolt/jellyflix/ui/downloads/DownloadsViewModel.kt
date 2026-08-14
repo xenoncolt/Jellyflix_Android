@@ -3,7 +3,6 @@ package dev.xenoncolt.jellyflix.ui.downloads
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -103,61 +102,7 @@ class DownloadsViewModel @Inject constructor(
 
     fun consumeMessage() { _message.value = null }
 
-    /**
-     * Hands the largest file off to whatever video player the user has, per the
-     * handoff's "open with" note. A content:// URI via FileProvider is required —
-     * a file:// URI throws FileUriExposedException on anything modern.
-     */
-    fun openInPlayer(infoHash: String) {
-        viewModelScope.launch {
-            val file = pickPlayableFile(infoHash)
-            if (file == null) {
-                _message.value = "Couldn't find the downloaded file."
-                return@launch
-            }
-
-            val uri = runCatching {
-                FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    file,
-                )
-            }.getOrNull()
-
-            if (uri == null) {
-                _message.value = "Couldn't share that file with a player."
-                return@launch
-            }
-
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, mimeTypeFor(file))
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-
-            runCatching {
-                context.startActivity(Intent.createChooser(intent, "Open with").apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-            }.onFailure {
-                _message.value = "No app on this device can open that file."
-            }
-        }
-    }
-
-    private suspend fun pickPlayableFile(infoHash: String): File? {
-        val videoExtensions = setOf("mkv", "mp4", "avi", "m4v", "mov", "webm", "ts")
-        val files = repository.filesOnDisk(infoHash)
-        return files.firstOrNull { it.extension.lowercase() in videoExtensions }
-            ?: files.firstOrNull()
-    }
-
-    private fun mimeTypeFor(file: File): String = when (file.extension.lowercase()) {
-        "mkv" -> "video/x-matroska"
-        "mp4", "m4v" -> "video/mp4"
-        "avi" -> "video/x-msvideo"
-        "mov" -> "video/quicktime"
-        "webm" -> "video/webm"
-        "ts" -> "video/mp2t"
-        else -> "video/*"
-    }
+    // The hand-off to another video player used to live here. It moved to
+    // PlayerViewModel, which knows which file of a season pack is actually on
+    // screen — this one could only ever guess at the largest.
 }

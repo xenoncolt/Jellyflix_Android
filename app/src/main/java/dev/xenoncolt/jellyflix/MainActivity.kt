@@ -68,13 +68,37 @@ class MainActivity : ComponentActivity() {
         val data = intent?.data ?: return
         if (data.scheme != BuildConfig.AUTH_SCHEME || data.host != "auth") return
 
+        // The callback can come back as `?error=denied|exchange` instead of a
+        // code. Dropping that silently left the user staring at a sign-in button
+        // that looked like it had simply done nothing.
+        data.getQueryParameter("error")?.let { reason ->
+            account.reportAuthError(
+                when (reason) {
+                    "denied" -> "Sign-in was cancelled."
+                    else -> "Sign-in didn't complete. Try again."
+                }
+            )
+            clearAuthIntent()
+            return
+        }
+
         val code = data.getQueryParameter("code")
         if (code.isNullOrBlank()) return
 
         lifecycleScope.launch { account.completeSignIn(code) }
 
-        // Don't re-run the exchange on a configuration change; the code is
-        // single-use and the second attempt would just fail.
-        setIntent(Intent(Intent.ACTION_MAIN).apply { setClass(this@MainActivity, MainActivity::class.java) })
+        clearAuthIntent()
+    }
+
+    /**
+     * Drops the callback intent so a configuration change cannot re-run the
+     * exchange — the code is single-use and the second attempt would just fail.
+     */
+    private fun clearAuthIntent() {
+        setIntent(
+            Intent(Intent.ACTION_MAIN).apply {
+                setClass(this@MainActivity, MainActivity::class.java)
+            }
+        )
     }
 }

@@ -23,6 +23,14 @@ import kotlinx.serialization.Serializable
 data class DetailRoute(val type: String, val id: Int)
 
 /**
+ * The video player. Carries the info hash rather than a file path: the download
+ * may hold a whole season, and which episode to open is the player's decision
+ * once it has read the saved positions.
+ */
+@Serializable
+data class PlayerRoute(val infoHash: String)
+
+/**
  * A paginated grid. [kind] maps onto `/api/discover?kind=`; [id] carries the
  * genre / company / network id where the kind needs one.
  */

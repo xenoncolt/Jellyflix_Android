@@ -47,6 +47,7 @@ object NameListSerializer : KSerializer<List<String>> {
         delegate.serialize(encoder, value)
     }
 
+    /** An unquoted `null` in the JSON is absence; a quoted "null" is a name. */
     private fun JsonPrimitive.contentOrNullSafe(): String? =
-        if (this is JsonPrimitive && !isString && content == "null") null else content
+        if (!isString && content == "null") null else content
 }

@@ -1,6 +1,7 @@
 package dev.xenoncolt.jellyflix.data.repo
 
 import android.os.Build
+import dev.xenoncolt.jellyflix.core.GoogleIdToken
 import dev.xenoncolt.jellyflix.core.Outcome
 import dev.xenoncolt.jellyflix.core.runCatchingApi
 import dev.xenoncolt.jellyflix.data.local.SettingsStore
@@ -9,6 +10,7 @@ import dev.xenoncolt.jellyflix.data.remote.dto.BookmarkRecord
 import dev.xenoncolt.jellyflix.data.remote.dto.BookmarkRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.DownloadLogRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.DownloadRecord
+import dev.xenoncolt.jellyflix.data.remote.dto.GoogleIdTokenRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaType
 import dev.xenoncolt.jellyflix.data.remote.dto.MeResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.PasswordLoginRequest
@@ -18,6 +20,7 @@ import dev.xenoncolt.jellyflix.data.remote.dto.UsernameAvailability
 import dev.xenoncolt.jellyflix.data.remote.dto.UsernameRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -38,6 +41,25 @@ class AccountRepository @Inject constructor(
 
     /** Null until the first `/api/me` completes; `user == null` means anonymous. */
     val session: Flow<MeResponse?> = _session.asStateFlow()
+
+    /**
+     * Failures from the sign-in deep link, which arrives at the activity rather
+     * than at any screen.
+     *
+     * `movhubs://auth` can come back with `?error=denied|exchange` instead of a
+     * code, and the exchange itself can fail. Neither has a ViewModel to report
+     * to — whichever screen is listening picks it up here.
+     */
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError.asStateFlow()
+
+    fun reportAuthError(message: String?) {
+        _authError.value = message
+    }
+
+    fun clearAuthError() {
+        _authError.value = null
+    }
 
     val isSignedIn: Flow<Boolean> = settings.authToken.map { !it.isNullOrBlank() }
 
@@ -148,6 +170,40 @@ class AccountRepository @Inject constructor(
         }
     }
 
+    /**
+     * Completes a native Google sign-in.
+     *
+     * The app never trusts the ID token itself — it is just a signed assertion
+     * from Google, and only the server can check the signature, that `aud` is
+     * our own web client, and that the nonce matches. What comes back is the
+     * same movhubs token every other sign-in path produces.
+     */
+    suspend fun signInWithGoogleIdToken(token: GoogleIdToken): Outcome<Unit> {
+        val result = runCatchingApi {
+            api.exchangeGoogleIdToken(
+                GoogleIdTokenRequest(
+                    id_token = token.idToken,
+                    nonce = token.nonce,
+                    device_name = deviceName(),
+                )
+            )
+        }
+
+        return when (result) {
+            is Outcome.Failure -> {
+                reportAuthError(result.error.message)
+                result
+            }
+
+            is Outcome.Success -> {
+                settings.setAuthToken(result.data.token)
+                clearAuthError()
+                refreshSession()
+                Outcome.Success(Unit)
+            }
+        }
+    }
+
     private fun deviceName(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
 
     // --- Username and linked providers (handoff 8.4) -------------------------
@@ -218,10 +274,16 @@ class AccountRepository @Inject constructor(
         }
 
         return when (result) {
-            is Outcome.Failure -> result
+            is Outcome.Failure -> {
+                reportAuthError(result.error.message)
+                result
+            }
+
             is Outcome.Success -> {
                 settings.setAuthToken(result.data.token)
                 settings.setPkceVerifier(null)
+                clearAuthError()
+                // Publishes the signed-in user to everything watching [session].
                 refreshSession()
                 Outcome.Success(Unit)
             }

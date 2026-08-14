@@ -13,6 +13,7 @@ import dev.xenoncolt.jellyflix.data.remote.dto.MediaDetailResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.MeResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.RevokeResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.SearchResponse
+import dev.xenoncolt.jellyflix.data.remote.dto.GoogleIdTokenRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.OkResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.PasswordLoginRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.TokenExchangeRequest
@@ -148,6 +149,13 @@ interface JellyflixApi {
      */
     @POST("api/auth/login")
     suspend fun login(@Body body: PasswordLoginRequest): TokenExchangeResponse
+
+    /**
+     * Native Google sign-in. Not part of the handoff yet — the server needs an
+     * endpoint that verifies a Google ID token and mints a movhubs token.
+     */
+    @POST("api/auth/google")
+    suspend fun exchangeGoogleIdToken(@Body body: GoogleIdTokenRequest): TokenExchangeResponse
 
     @POST("api/auth/revoke")
     suspend fun revokeToken(): RevokeResponse

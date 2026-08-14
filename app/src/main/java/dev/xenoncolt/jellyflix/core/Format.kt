@@ -25,6 +25,22 @@ object Format {
     }
 
     /** Bytes per second -> "4.2 MB/s". */
+    /**
+     * Elapsed time for the player scrubber. Drops the hours field on anything
+     * under an hour, the way every video player does.
+     */
+    fun duration(millis: Long): String {
+        val total = (millis / 1000).coerceAtLeast(0)
+        val hours = total / 3600
+        val minutes = (total % 3600) / 60
+        val seconds = total % 60
+        return if (hours > 0) {
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(Locale.US, "%d:%02d", minutes, seconds)
+        }
+    }
+
     fun speed(bytesPerSecond: Long): String =
         if (bytesPerSecond <= 0) "—" else "${bytes(bytesPerSecond)}/s"
 

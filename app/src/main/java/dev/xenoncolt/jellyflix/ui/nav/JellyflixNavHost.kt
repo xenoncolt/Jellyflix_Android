@@ -31,12 +31,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaDetail
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaSummary
 import dev.xenoncolt.jellyflix.ui.browse.BrowseScreen
 import dev.xenoncolt.jellyflix.ui.detail.DetailScreen
 import dev.xenoncolt.jellyflix.ui.downloads.DownloadsScreen
 import dev.xenoncolt.jellyflix.ui.grid.GridScreen
+import dev.xenoncolt.jellyflix.player.PlayerScreen
 import dev.xenoncolt.jellyflix.ui.home.HomeScreen
 import dev.xenoncolt.jellyflix.ui.profile.ProfileScreen
 import dev.xenoncolt.jellyflix.ui.releases.ReleaseSheet
@@ -143,7 +145,16 @@ fun JellyflixNavHost(
             }
 
             composable<DownloadsRoute> {
-                DownloadsScreen()
+                DownloadsScreen(
+                    onPlay = { infoHash -> navController.navigate(PlayerRoute(infoHash)) },
+                )
+            }
+
+            composable<PlayerRoute> { entry ->
+                PlayerScreen(
+                    infoHash = entry.toRoute<PlayerRoute>().infoHash,
+                    onBack = { navController.popBackStack() },
+                )
             }
 
             composable<SearchRoute> {
@@ -175,6 +186,7 @@ fun JellyflixNavHost(
                         }
                     },
                     onDownloadRequest = { media, season -> releaseTarget = media to season },
+                    onPlay = { infoHash -> navController.navigate(PlayerRoute(infoHash)) },
                     onSignInRequest = { navController.navigate(ProfileRoute) },
                 )
             }

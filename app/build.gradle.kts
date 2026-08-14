@@ -39,13 +39,23 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0.1"
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // The movhubs backend this app talks to. Change if you self-host it elsewhere.
         buildConfigField("String", "API_BASE_URL", "\"https://movhubs.xenoncolt.dev/\"")
         // Must match MOBILE_SCHEME on the server (default: movhubs).
         buildConfigField("String", "AUTH_SCHEME", "\"movhubs\"")
+
+        // The *Web* client, not the Android one. Credential Manager rejects an
+        // Android client id here; the Android client exists only so Play
+        // Services can check this app's package and signature. Not a secret —
+        // web client ids are public, and the secret stays on the server.
+        buildConfigField(
+            "String",
+            "GOOGLE_WEB_CLIENT_ID",
+            "\"508850093217-1fch5tlr2sq02mfjg111lv3j5fm8k4c1.apps.googleusercontent.com\"",
+        )
         manifestPlaceholders["authScheme"] = "movhubs"
 
         ndk {
@@ -108,6 +118,11 @@ android {
                 "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
                 "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
                 "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+                // Kotlin is changing where an annotation on a constructor `val`
+                // lands: today the parameter only, in future the backing field
+                // too. Opting in now means annotations like @ApplicationContext
+                // already behave the way they will by default (KT-73255).
+                "-Xannotation-default-target=param-property",
                 "-opt-in=kotlinx.coroutines.FlowPreview",
             )
         }
@@ -176,6 +191,7 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.viewmodel.compose)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
     implementation(libs.androidx.work.runtime)
@@ -207,4 +223,14 @@ dependencies {
     implementation(libs.libtorrent4j.android.arm64)
     implementation(libs.libtorrent4j.android.arm)
     implementation(libs.libtorrent4j.android.x64)
+
+    // Playback. See the note in libs.versions.toml for why this replaced libVLC.
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.session)
+    implementation(libs.media3.ffmpeg.decoder)
+
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.google.identity.googleid)
 }

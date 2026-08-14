@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,7 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xenoncolt.jellyflix.core.Format
 import dev.xenoncolt.jellyflix.core.Tmdb
@@ -70,10 +71,13 @@ import dev.xenoncolt.jellyflix.ui.theme.Tokens
 /**
  * Detail screen.
  *
- * The one structural difference from the web build: there is no Play button.
- * Movies get a single Download action; series get a season list where each row
- * downloads a whole season pack. Individual episodes are deliberately not
- * offered — the server's season search already drops them.
+ * Movies get a single action button and series get a season list, each row
+ * covering a whole season pack — individual episodes are deliberately not
+ * offered, since the server's season search already drops them.
+ *
+ * The action turns into Play once the download has finished, which is the whole
+ * point of shipping a player: offering "Download again" on something already on
+ * disk was never what anyone wanted next.
  */
 @Composable
 fun DetailScreen(
@@ -81,6 +85,7 @@ fun DetailScreen(
     onBack: () -> Unit,
     onHome: () -> Unit,
     onDownloadRequest: (media: MediaDetail, season: Int?) -> Unit,
+    onPlay: (infoHash: String) -> Unit,
     onSignInRequest: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DetailViewModel = hiltViewModel(),
@@ -116,6 +121,7 @@ fun DetailScreen(
                         onHome = onHome,
                         onBookmark = viewModel::toggleBookmark,
                         onDownload = { onDownloadRequest(media, null) },
+                        onPlay = onPlay,
                         showDownloadButton = media.mediaType == MediaType.MOVIE,
                         movieDownload = downloads.firstOrNull { it.season == null },
                     )
@@ -140,6 +146,7 @@ fun DetailScreen(
                             season = season,
                             download = downloads.firstOrNull { it.season == season.seasonNumber },
                             onDownload = { onDownloadRequest(media, season.seasonNumber) },
+                            onPlay = onPlay,
                         )
                     }
                 }
@@ -174,6 +181,7 @@ private fun DetailHero(
     onHome: () -> Unit,
     onBookmark: () -> Unit,
     onDownload: () -> Unit,
+    onPlay: (String) -> Unit,
     showDownloadButton: Boolean,
     movieDownload: DownloadEntity?,
 ) {
@@ -259,25 +267,39 @@ private fun DetailHero(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (showDownloadButton) {
+                    // Once it is on disk, watching it is the obvious next thing
+                    // to do — downloading it a second time is not. Re-downloading
+                    // stays available from the release picker.
+                    // Null unless it is on disk and ready, which makes it both
+                    // the condition and the thing to play.
+                    val playable = movieDownload?.takeIf { it.isTerminal }
+                    val finished = playable != null
+
                     Button(
-                        onClick = onDownload,
+                        onClick = {
+                            if (playable != null) onPlay(playable.infoHash) else onDownload()
+                        },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Tokens.Brand500,
+                            containerColor = if (finished) Tokens.Success500 else Tokens.Brand500,
                             contentColor = Color.White,
                         ),
                         contentPadding = PaddingValues(vertical = 14.dp),
                     ) {
                         Icon(
-                            Icons.Rounded.Download,
+                            imageVector = if (finished) {
+                                Icons.Rounded.PlayArrow
+                            } else {
+                                Icons.Rounded.Download
+                            },
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                         )
                         Text(
                             text = when {
+                                finished -> "Play"
                                 movieDownload == null -> "Download"
-                                movieDownload.isTerminal -> "Download again"
                                 else -> "Downloading…"
                             },
                             style = MaterialTheme.typography.titleMedium,
@@ -364,6 +386,7 @@ private fun SeasonRow(
     season: SeasonSummary,
     download: DownloadEntity?,
     onDownload: () -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -419,8 +442,11 @@ private fun SeasonRow(
             }
         }
 
+        val playable = download?.takeIf { it.isTerminal }
+        val finished = playable != null
+
         Button(
-            onClick = onDownload,
+            onClick = { if (playable != null) onPlay(playable.infoHash) else onDownload() },
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = when {
@@ -433,14 +459,18 @@ private fun SeasonRow(
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
         ) {
             Icon(
-                Icons.Rounded.Download,
-                contentDescription = "Download season ${season.seasonNumber}",
+                imageVector = if (finished) Icons.Rounded.PlayArrow else Icons.Rounded.Download,
+                contentDescription = if (finished) {
+                    "Play season ${season.seasonNumber}"
+                } else {
+                    "Download season ${season.seasonNumber}"
+                },
                 modifier = Modifier.size(17.dp),
             )
             Text(
                 text = when {
                     download == null -> "Season"
-                    download.isTerminal -> "Done"
+                    download.isTerminal -> "Play"
                     else -> "${(download.progress * 100).toInt()}%"
                 },
                 style = MaterialTheme.typography.labelLarge,

@@ -1,5 +1,6 @@
 package dev.xenoncolt.jellyflix.ui.profile
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Login
+import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,7 +53,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xenoncolt.jellyflix.core.Format
 import dev.xenoncolt.jellyflix.core.Tmdb
@@ -76,6 +78,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // Comes before everything else: the account is on a placeholder handle until
     // this is answered.
@@ -96,7 +99,16 @@ fun ProfileScreen(
                 ProfileHeader(
                     state = state,
                     onPasswordSignIn = viewModel::signInWithPassword,
-                    onProviderSignIn = viewModel::beginSignIn,
+                    onProviderSignIn = { provider ->
+                        // Google gets the native account sheet, which needs the
+                        // Activity; Discord has no such API and stays on PKCE.
+                        val activity = context as? Activity
+                        if (provider == AuthProvider.GOOGLE && activity != null) {
+                            viewModel.signInWithGoogle(activity)
+                        } else {
+                            viewModel.beginSignIn(provider)
+                        }
+                    },
                     onCreateAccount = viewModel::openAccountPage,
                     onSignOut = viewModel::signOut,
                 )
@@ -479,7 +491,7 @@ private fun SignInForm(
                 color = Color.White,
             )
         } else {
-            Icon(Icons.Rounded.Login, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.AutoMirrored.Rounded.Login, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         Text("Sign in", modifier = Modifier.padding(start = 8.dp))
     }

@@ -19,11 +19,12 @@ class Converters {
 }
 
 @Database(
-    entities = [DownloadEntity::class],
-    version = 1,
+    entities = [DownloadEntity::class, PlaybackPositionEntity::class],
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
+    abstract fun playbackDao(): PlaybackDao
 }

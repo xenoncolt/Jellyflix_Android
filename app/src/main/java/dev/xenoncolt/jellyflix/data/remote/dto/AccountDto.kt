@@ -144,6 +144,19 @@ data class PasswordLoginRequest(
     val device_name: String,
 )
 
+/**
+ * Native Google sign-in: the app has already authenticated the user with Google
+ * and holds a signed ID token. The server verifies it against Google's keys,
+ * checks `aud` is our web client and that `nonce` matches, then issues a movhubs
+ * token exactly as the PKCE flow does.
+ */
+@Serializable
+data class GoogleIdTokenRequest(
+    val id_token: String,
+    val nonce: String,
+    val device_name: String,
+)
+
 @Serializable
 data class TokenExchangeRequest(
     val code: String,

@@ -47,7 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xenoncolt.jellyflix.core.Format
 import dev.xenoncolt.jellyflix.core.Tmdb
@@ -64,6 +64,7 @@ import dev.xenoncolt.jellyflix.ui.theme.Tokens
 
 @Composable
 fun DownloadsScreen(
+    onPlay: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
@@ -158,7 +159,10 @@ fun DownloadsScreen(
                         download = download,
                         onPause = { viewModel.pause(download.entity.infoHash) },
                         onResume = { viewModel.resume(download.entity.infoHash) },
-                        onOpen = { viewModel.openInPlayer(download.entity.infoHash) },
+                        // Finished downloads open in the built-in player now;
+                        // handing off to another app moved into the player's
+                        // own menu, where it can carry the current file with it.
+                        onOpen = { onPlay(download.entity.infoHash) },
                         onRemove = { pendingRemoval = download },
                     )
                 }

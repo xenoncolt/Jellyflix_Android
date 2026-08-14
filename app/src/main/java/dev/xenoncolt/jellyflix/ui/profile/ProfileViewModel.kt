@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.xenoncolt.jellyflix.BuildConfig
+import dev.xenoncolt.jellyflix.core.GoogleAuth
+import dev.xenoncolt.jellyflix.core.GoogleAuthResult
 import dev.xenoncolt.jellyflix.core.Outcome
 import dev.xenoncolt.jellyflix.core.Usernames
 import dev.xenoncolt.jellyflix.data.remote.dto.BookmarkRecord
@@ -22,6 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -61,37 +64,81 @@ class ProfileViewModel @Inject constructor(
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
+    /** Guards against re-fetching bookmarks and history for the same user. */
+    private var loadedFor: String? = null
+
     init {
+        observeSession()
+        observeAuthErrors()
         refresh()
+    }
+
+    /**
+     * Follows the repository's session rather than snapshotting it once.
+     *
+     * This is what makes sign-in actually land. The OAuth deep link comes back
+     * to the *activity*, not to this screen, so nothing here ever learns the
+     * exchange happened — the profile would sit on its startup snapshot showing
+     * "signed out" while the token was already stored. Worse, if the callback
+     * spawns a fresh activity, this ViewModel's own startup `/api/me` can race
+     * the token being written and lose. Watching the singleton repository fixes
+     * both: whoever completes the sign-in publishes here.
+     */
+    private fun observeSession() {
+        viewModelScope.launch {
+            // The initial null just means "not fetched yet" — skipping it avoids
+            // a flash of the signed-out screen on launch.
+            account.session.filterNotNull().collect { me ->
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        signingIn = false,
+                        user = me.user,
+                        stats = me.stats,
+                    )
+                }
+
+                val userId = me.user?.id
+                if (userId == null) {
+                    loadedFor = null
+                    _state.update { it.copy(bookmarks = emptyList(), history = emptyList()) }
+                } else if (userId != loadedFor) {
+                    loadedFor = userId
+                    loadAccountData()
+                }
+            }
+        }
+    }
+
+    private fun observeAuthErrors() {
+        viewModelScope.launch {
+            account.authError.collect { message ->
+                if (message != null) {
+                    _state.update { it.copy(signingIn = false, error = message) }
+                }
+            }
+        }
+    }
+
+    /** Only meaningful once signed in; both endpoints 401 when anonymous. */
+    private suspend fun loadAccountData() {
+        account.bookmarks().getOrNull()?.let { bookmarks ->
+            _state.update { it.copy(bookmarks = bookmarks) }
+        }
+        account.downloadHistory().getOrNull()?.let { history ->
+            _state.update { it.copy(history = history) }
+        }
     }
 
     fun refresh() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
 
-            when (val me = account.refreshSession()) {
-                is Outcome.Failure -> {
-                    _state.update { it.copy(loading = false, error = me.error.message) }
-                    return@launch
-                }
-
-                is Outcome.Success -> _state.update {
-                    it.copy(
-                        loading = false,
-                        user = me.data.user,
-                        stats = me.data.stats,
-                    )
-                }
-            }
-
-            // Only meaningful once signed in; both endpoints 401 when anonymous.
-            if (_state.value.user != null) {
-                account.bookmarks().getOrNull()?.let { bookmarks ->
-                    _state.update { it.copy(bookmarks = bookmarks) }
-                }
-                account.downloadHistory().getOrNull()?.let { history ->
-                    _state.update { it.copy(history = history) }
-                }
+            // Success flows back through [observeSession], so there is nothing to
+            // apply here — only the failure needs reporting.
+            val result = account.refreshSession()
+            if (result is Outcome.Failure) {
+                _state.update { it.copy(loading = false, error = result.error.message) }
             }
         }
     }
@@ -103,6 +150,42 @@ class ProfileViewModel @Inject constructor(
      * and give up the OS-level session, which is exactly what RFC 8252 tells
      * native apps not to do. Google rejects embedded webviews outright.
      */
+    /**
+     * Google sign-in through the system account sheet, with the browser flow as
+     * a fallback.
+     *
+     * Needs an Activity context — Credential Manager throws on an application
+     * one — which is why this takes it as a parameter instead of using the
+     * injected context.
+     *
+     * The fallback matters more than it looks: the native sheet is unavailable
+     * on a device with no Play Services, no Google account, or a build whose
+     * signing certificate isn't registered against the Android OAuth client.
+     * None of those should leave the user unable to sign in at all.
+     */
+    fun signInWithGoogle(activityContext: Context) {
+        viewModelScope.launch {
+            _state.update { it.copy(signingIn = true, error = null) }
+
+            when (val result = GoogleAuth.signIn(activityContext)) {
+                is GoogleAuthResult.Success ->
+                    // Failures are reported through the repository's authError.
+                    account.signInWithGoogleIdToken(result.credential)
+
+                GoogleAuthResult.Cancelled ->
+                    _state.update { it.copy(signingIn = false) }
+
+                is GoogleAuthResult.Unavailable -> {
+                    // Straight to the browser rather than showing a dead end.
+                    beginSignIn(AuthProvider.GOOGLE)
+                }
+
+                is GoogleAuthResult.Failure ->
+                    _state.update { it.copy(signingIn = false, error = result.message) }
+            }
+        }
+    }
+
     fun beginSignIn(provider: AuthProvider) {
         viewModelScope.launch {
             _state.update { it.copy(signingIn = true, error = null) }
@@ -311,6 +394,9 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch {
+            // Clears the sheet's "auto sign in with this account" state, so the
+            // next attempt offers a choice instead of silently reusing one.
+            GoogleAuth.signOut(context)
             account.signOut()
             _state.value = ProfileUiState(loading = false)
         }
