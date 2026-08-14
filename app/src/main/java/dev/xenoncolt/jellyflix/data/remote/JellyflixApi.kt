@@ -13,7 +13,13 @@ import dev.xenoncolt.jellyflix.data.remote.dto.MediaDetailResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.MeResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.RevokeResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.SearchResponse
+import dev.xenoncolt.jellyflix.data.remote.dto.OkResponse
+import dev.xenoncolt.jellyflix.data.remote.dto.PasswordLoginRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.TokenExchangeRequest
+import dev.xenoncolt.jellyflix.data.remote.dto.UnlinkRequest
+import dev.xenoncolt.jellyflix.data.remote.dto.UsernameAvailability
+import dev.xenoncolt.jellyflix.data.remote.dto.UsernameRequest
+import dev.xenoncolt.jellyflix.data.remote.dto.UsernameResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.TokenExchangeResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.TorrentsResponse
 import okhttp3.ResponseBody
@@ -135,6 +141,26 @@ interface JellyflixApi {
     @POST("api/auth/exchange")
     suspend fun exchangeCode(@Body body: TokenExchangeRequest): TokenExchangeResponse
 
+    /**
+     * Password sign-in. 401 for any bad credential, 429 when throttled — eight
+     * failures in fifteen minutes locks both the identifier and the caller's
+     * address, so the message must be surfaced rather than retried.
+     */
+    @POST("api/auth/login")
+    suspend fun login(@Body body: PasswordLoginRequest): TokenExchangeResponse
+
     @POST("api/auth/revoke")
     suspend fun revokeToken(): RevokeResponse
+
+    /** Availability check for the username prompt. Debounce it (handoff 8.4). */
+    @GET("api/auth/username")
+    suspend fun checkUsername(@Query("username") username: String): UsernameAvailability
+
+    /** 409 when taken, 400 when it breaks the format rules. */
+    @POST("api/auth/username")
+    suspend fun setUsername(@Body body: UsernameRequest): UsernameResponse
+
+    /** 400 when the provider isn't connected, or is the last one on the account. */
+    @POST("api/auth/unlink")
+    suspend fun unlinkProvider(@Body body: UnlinkRequest): OkResponse
 }

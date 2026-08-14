@@ -11,13 +11,23 @@ import dev.xenoncolt.jellyflix.data.remote.dto.DownloadLogRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.DownloadRecord
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaType
 import dev.xenoncolt.jellyflix.data.remote.dto.MeResponse
+import dev.xenoncolt.jellyflix.data.remote.dto.PasswordLoginRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.TokenExchangeRequest
+import dev.xenoncolt.jellyflix.data.remote.dto.UnlinkRequest
+import dev.xenoncolt.jellyflix.data.remote.dto.UsernameAvailability
+import dev.xenoncolt.jellyflix.data.remote.dto.UsernameRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** The OAuth providers the server offers. Both use the same PKCE flow. */
+enum class AuthProvider(val path: String, val label: String) {
+    DISCORD("discord", "Discord"),
+    GOOGLE("google", "Google"),
+}
 
 @Singleton
 class AccountRepository @Inject constructor(
@@ -87,20 +97,108 @@ class AccountRepository @Inject constructor(
     /**
      * Builds the authorize URL and stashes the verifier. The caller opens the
      * URL in a Custom Tab — never a WebView, which would defeat the point of
-     * PKCE by handing the app the user's Discord session.
+     * PKCE by handing the app the user's provider session, and which Google
+     * blocks outright.
+     *
+     * The flow is byte-for-byte identical for both providers; only the path
+     * segment changes (handoff 8.2).
      */
-    suspend fun beginSignIn(baseUrl: String, scheme: String): String {
+    suspend fun beginSignIn(
+        baseUrl: String,
+        scheme: String,
+        provider: AuthProvider,
+    ): String {
         val verifier = Pkce.generateVerifier()
         settings.setPkceVerifier(verifier)
         val challenge = Pkce.challengeOf(verifier)
         return buildString {
             append(baseUrl.trimEnd('/'))
-            append("/auth/discord?code_challenge=")
+            append("/auth/${provider.path}?code_challenge=")
             append(challenge)
             append("&redirect_uri=")
             append("$scheme://auth")
         }
     }
+
+    /**
+     * Signs in with a password set on the website, which is the one path that
+     * needs no browser at all (handoff 8.1).
+     *
+     * No PKCE verifier is involved, so nothing is stashed beforehand and there
+     * is nothing to clean up on failure.
+     */
+    suspend fun signInWithPassword(identifier: String, password: String): Outcome<Unit> {
+        val result = runCatchingApi {
+            api.login(
+                PasswordLoginRequest(
+                    identifier = identifier.trim(),
+                    password = password,
+                    device_name = deviceName(),
+                )
+            )
+        }
+
+        return when (result) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                settings.setAuthToken(result.data.token)
+                refreshSession()
+                Outcome.Success(Unit)
+            }
+        }
+    }
+
+    private fun deviceName(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+
+    // --- Username and linked providers (handoff 8.4) -------------------------
+
+    /** Availability check for the username prompt. Callers should debounce. */
+    suspend fun checkUsername(candidate: String): Outcome<UsernameAvailability> =
+        runCatchingApi { api.checkUsername(candidate.trim()) }
+
+    /**
+     * Claims a username. 409 means taken, 400 means the format is wrong; both
+     * arrive as a server message worth showing as-is.
+     */
+    suspend fun setUsername(username: String): Outcome<String> {
+        val result = runCatchingApi { api.setUsername(UsernameRequest(username.trim())) }
+        return when (result) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                // Clears usernamePending for everything watching the session.
+                refreshSession()
+                Outcome.Success(result.data.username)
+            }
+        }
+    }
+
+    /**
+     * Disconnects a provider. The server refuses to remove the last one — the
+     * website signs in through OAuth only, so dropping it would lock the
+     * account out even with a password set.
+     */
+    suspend fun unlinkProvider(provider: AuthProvider): Outcome<Unit> {
+        val result = runCatchingApi { api.unlinkProvider(UnlinkRequest(provider.path)) }
+        return when (result) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                refreshSession()
+                Outcome.Success(Unit)
+            }
+        }
+    }
+
+    /**
+     * Where to send the browser to connect a second provider.
+     *
+     * This one is a browser round trip because it ends at the provider's own
+     * consent screen, and the endpoint authenticates with the **session cookie**
+     * — there is no bearer-token variant. A Custom Tab shares the browser's
+     * cookie jar, so it works when the user has signed in on the website in that
+     * browser, and returns `link_error=session` when they have not.
+     */
+    fun linkProviderUrl(baseUrl: String, provider: AuthProvider): String =
+        "${baseUrl.trimEnd('/')}/auth/${provider.path}?link=1&next=/profile"
 
     /** Exchanges the one-time code from the deep link for a 180-day bearer token. */
     suspend fun completeSignIn(code: String): Outcome<Unit> {
@@ -114,7 +212,7 @@ class AccountRepository @Inject constructor(
                 TokenExchangeRequest(
                     code = code,
                     code_verifier = verifier,
-                    device_name = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+                    device_name = deviceName(),
                 )
             )
         }

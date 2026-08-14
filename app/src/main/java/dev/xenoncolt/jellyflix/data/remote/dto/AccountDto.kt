@@ -1,6 +1,7 @@
 package dev.xenoncolt.jellyflix.data.remote.dto
 
 import androidx.compose.runtime.Immutable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** MOBILE-HANDOFF sections 6.4 / 6.5. */
@@ -9,11 +10,34 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class SessionUser(
     val id: String = "",
+    /** Unique handle. Doubles as a login identifier for password sign-in. */
     val username: String = "",
+    @SerialName("displayName") val serverDisplayName: String? = null,
+    /** The older shape of the same idea; kept so a stale server still renders. */
     val globalName: String? = null,
     val avatarUrl: String? = null,
+    /** Also accepted as a login identifier. */
+    val email: String? = null,
+    /** False until the user sets a password on the website (handoff 6). */
+    val hasPassword: Boolean = false,
+    /**
+     * e.g. ["discord"] or ["discord","google"]. One account carries both once
+     * linked, and either provider then signs in to the same bookmarks and
+     * history — the server links them automatically when a provider reports a
+     * **verified** email that already exists (handoff 6).
+     */
+    val providers: List<String> = emptyList(),
+    /**
+     * True when the provider's handle was already taken and the account is
+     * sitting on a placeholder like `name-3f9c21`. Prompt for a real username
+     * before anything else.
+     */
+    val usernamePending: Boolean = false,
 ) {
-    val displayName: String get() = globalName?.takeIf { it.isNotBlank() } ?: username
+    val displayName: String
+        get() = serverDisplayName?.takeIf { it.isNotBlank() }
+            ?: globalName?.takeIf { it.isNotBlank() }
+            ?: username
 }
 
 @Immutable
@@ -108,6 +132,18 @@ data class DownloadLogRequest(
     val method: String,
 )
 
+/**
+ * Password sign-in (handoff 8.1). [identifier] is the username *or* the email —
+ * the server accepts either, and answers with the same 401 for every kind of
+ * failure so accounts cannot be enumerated.
+ */
+@Serializable
+data class PasswordLoginRequest(
+    val identifier: String,
+    val password: String,
+    val device_name: String,
+)
+
 @Serializable
 data class TokenExchangeRequest(
     val code: String,
@@ -126,3 +162,26 @@ data class TokenExchangeResponse(
 data class RevokeResponse(
     val revoked: Boolean = false,
 )
+
+/** Handoff 8.4. `reason` is `"taken"` or `"invalid"` when unavailable. */
+@Serializable
+data class UsernameAvailability(
+    val available: Boolean = false,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class UsernameRequest(val username: String)
+
+@Serializable
+data class UsernameResponse(
+    val ok: Boolean = false,
+    val username: String = "",
+)
+
+@Serializable
+data class UnlinkRequest(val provider: String)
+
+@Serializable
+data class OkResponse(val ok: Boolean = false)
