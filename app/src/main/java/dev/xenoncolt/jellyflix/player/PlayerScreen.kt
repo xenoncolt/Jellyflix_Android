@@ -1,6 +1,9 @@
 package dev.xenoncolt.jellyflix.player
 
 import android.app.Activity
+import android.content.Context
+import android.media.AudioManager
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -76,6 +79,7 @@ import dev.xenoncolt.jellyflix.core.Format
 import dev.xenoncolt.jellyflix.ui.theme.Tokens
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Full-screen player.
@@ -184,14 +188,37 @@ fun PlayerScreen(
                 }
             }
             .pointerInput(Unit) {
-                detectVerticalDragGestures { change, dragAmount ->
+                // Captured at the start of each drag and applied as an absolute
+                // value, rather than nudging the current level once per event.
+                // Per-event nudging loses the fraction every time: a single move
+                // is worth well under one volume step, so the rounding decided
+                // the outcome instead of the gesture.
+                var brightnessSide = false
+                var accumulated = 0f
+                var startVolume = 0f
+                var startBrightness = 0f
+
+                detectVerticalDragGestures(
+                    onDragStart = { offset ->
+                        // Left half is brightness, right half is volume — VLC and
+                        // YouTube both do this and users expect it. Decided once,
+                        // at the start, so a diagonal drag can't cross over
+                        // halfway through and start changing the other one.
+                        brightnessSide = offset.x < size.width / 2
+                        accumulated = 0f
+                        startVolume = currentVolumeFraction(context)
+                        startBrightness = (context as? Activity)
+                            ?.let { currentBrightness(it) }
+                            ?: 0.5f
+                    },
+                ) { _, dragAmount ->
                     val activity = context as? Activity ?: return@detectVerticalDragGestures
-                    // Left half is brightness, right half is volume — VLC and
-                    // YouTube both do this and users expect it.
-                    if (change.position.x < size.width / 2) {
-                        gestureHint = adjustBrightness(activity, -dragAmount / size.height)
+                    // A full swipe of the screen height covers the whole range.
+                    accumulated += -dragAmount / size.height
+                    gestureHint = if (brightnessSide) {
+                        setBrightness(activity, startBrightness + accumulated)
                     } else {
-                        gestureHint = adjustVolume(activity, -dragAmount / size.height)
+                        setVolumeFraction(context, startVolume + accumulated)
                     }
                 }
             },
@@ -602,21 +629,55 @@ private fun formatSeekHint(deltaMs: Long): String {
     return if (seconds >= 0) "+${seconds}s" else "${seconds}s"
 }
 
-private fun adjustBrightness(activity: Activity, delta: Float): String {
-    val attributes = activity.window.attributes
-    val current = attributes.screenBrightness.takeIf { it >= 0f } ?: 0.5f
-    val next = (current + delta).coerceIn(0.01f, 1f)
-    attributes.screenBrightness = next
-    activity.window.attributes = attributes
-    return "Brightness ${(next * 100).toInt()}%"
+private fun audioManagerOf(context: Context): AudioManager? =
+    context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+
+private fun currentVolumeFraction(context: Context): Float {
+    val audio = audioManagerOf(context) ?: return 0f
+    val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+    return audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max
 }
 
-private fun adjustVolume(activity: Activity, delta: Float): String {
-    val audio = activity.getSystemService(android.content.Context.AUDIO_SERVICE)
-        as? android.media.AudioManager ?: return ""
-    val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-    val current = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-    val next = (current + (delta * max)).toInt().coerceIn(0, max)
-    audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, next, 0)
-    return "Volume ${(next * 100) / max}%"
+/**
+ * Sets media volume from a 0..1 fraction of the whole range.
+ *
+ * Rounds rather than truncating, which is the fix for a gesture that only ever
+ * went one way. `toInt()` truncates *toward zero*: a drag worth a third of a
+ * step still moved the volume down (4.85 became 4) while the same drag upward
+ * was thrown away (5.15 became 5). At zero nothing could raise it at all,
+ * because a fraction of a step always truncated straight back to 0.
+ */
+private fun setVolumeFraction(context: Context, fraction: Float): String {
+    val audio = audioManagerOf(context) ?: return ""
+    val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+    val steps = (fraction.coerceIn(0f, 1f) * max).roundToInt().coerceIn(0, max)
+    audio.setStreamVolume(AudioManager.STREAM_MUSIC, steps, 0)
+    // Reports the step actually applied rather than the requested fraction, so
+    // the readout cannot disagree with the device.
+    return "Volume ${steps * 100 / max}%"
+}
+
+/**
+ * The window's brightness override, or the system setting when there is none.
+ *
+ * Falling back to the system value matters: an unset override reads as -1, and
+ * defaulting that to a flat 50% made the screen jump the moment a drag started.
+ */
+private fun currentBrightness(activity: Activity): Float =
+    activity.window.attributes.screenBrightness.takeIf { it >= 0f }
+        ?: runCatching {
+            Settings.System.getInt(
+                activity.contentResolver,
+                Settings.System.SCREEN_BRIGHTNESS,
+            ) / 255f
+        }.getOrDefault(0.5f)
+
+private fun setBrightness(activity: Activity, value: Float): String {
+    // Never fully dark: 0 reads as "use the system value" on some builds, and a
+    // black screen with no way back is a trap either way.
+    val next = value.coerceIn(0.01f, 1f)
+    activity.window.attributes = activity.window.attributes.apply {
+        screenBrightness = next
+    }
+    return "Brightness ${(next * 100).roundToInt()}%"
 }
