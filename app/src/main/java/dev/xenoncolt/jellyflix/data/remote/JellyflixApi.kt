@@ -16,6 +16,7 @@ import dev.xenoncolt.jellyflix.data.remote.dto.SearchResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.GoogleIdTokenRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.OkResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.PasswordLoginRequest
+import dev.xenoncolt.jellyflix.data.remote.dto.SeasonDetailResponse
 import dev.xenoncolt.jellyflix.data.remote.dto.TokenExchangeRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.UnlinkRequest
 import dev.xenoncolt.jellyflix.data.remote.dto.UsernameAvailability
@@ -76,17 +77,38 @@ interface JellyflixApi {
     // --- 6.2 Releases -------------------------------------------------------
 
     /**
+     * Episode list for one season. Fetched only when a picker opens — names and
+     * air dates are a separate TMDB call the detail response doesn't carry.
+     */
+    @GET("api/media/tv/{id}/season/{seasonNumber}")
+    suspend fun seasonDetail(
+        @Path("id") id: Int,
+        @Path("seasonNumber") seasonNumber: Int,
+    ): SeasonDetailResponse
+
+    /**
      * Two-tier search. Call without [tier] first (~4s), then again with
      * `tier = 2` in the background (~13s) and merge the results.
      *
-     * For series, passing [season] returns season packs only — single episodes
-     * are dropped server-side, which is exactly what this app wants.
+     * For series, [season] alone returns season packs only. Adding [episode]
+     * searches `Title S04E01` instead and returns that episode plus packs
+     * containing it — which is what a season still airing needs, since no pack
+     * exists for it yet.
+     *
+     * Answers 409 with `notReleased` when the title, season or episode is not
+     * out. That is an expected state, not a failure.
      */
     @GET("api/torrents")
     suspend fun torrents(
         @Query("type") type: String,
         @Query("id") id: Int,
         @Query("season") season: Int? = null,
+        /**
+         * Narrows a series search to one episode, so a season still airing can
+         * be downloaded an episode at a time. Without it the server returns
+         * packs only.
+         */
+        @Query("episode") episode: Int? = null,
         @Query("tier") tier: Int? = null,
     ): TorrentsResponse
 
@@ -98,6 +120,8 @@ interface JellyflixApi {
         @Query("id") id: Int,
         @Query("guid") guid: String,
         @Query("season") season: Int? = null,
+        /** Must match the search that produced [guid], or the id won't resolve. */
+        @Query("episode") episode: Int? = null,
     ): MagnetResponse
 
     /**
@@ -112,6 +136,8 @@ interface JellyflixApi {
         @Query("id") id: Int,
         @Query("guid") guid: String,
         @Query("season") season: Int? = null,
+        /** Must match the search that produced [guid], or the id won't resolve. */
+        @Query("episode") episode: Int? = null,
     ): Response<ResponseBody>
 
     // --- 6.4 Account --------------------------------------------------------

@@ -20,7 +20,7 @@ class Converters {
 
 @Database(
     entities = [DownloadEntity::class, PlaybackPositionEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

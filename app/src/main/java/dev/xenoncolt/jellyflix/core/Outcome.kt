@@ -24,6 +24,12 @@ data class AppError(
     val message: String,
     val requiresAuth: Boolean = false,
     val isNetwork: Boolean = false,
+    /**
+     * The title isn't out yet. A 409, and an expected state rather than a
+     * failure — the server refuses so a fuzzy indexer match can't be downloaded
+     * by accident.
+     */
+    val notReleased: Boolean = false,
     val statusCode: Int? = null,
 ) {
     /** A stale `guid` (404) means "search again", not "this button is dead". */
@@ -59,6 +65,7 @@ fun HttpException.toAppError(): AppError {
     return AppError(
         message = parsed?.error ?: defaultMessageFor(code()),
         requiresAuth = parsed?.requiresAuth == true || code() == 401,
+        notReleased = parsed?.notReleased == true,
         statusCode = code(),
     )
 }
@@ -75,4 +82,5 @@ private fun defaultMessageFor(code: Int): String = when (code) {
 data class ApiErrorBody(
     val error: String = "Something went wrong",
     val requiresAuth: Boolean = false,
+    val notReleased: Boolean = false,
 )

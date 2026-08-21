@@ -54,6 +54,7 @@ import dev.xenoncolt.jellyflix.ui.theme.Tokens
 fun ReleaseSheet(
     media: MediaDetail,
     season: Int?,
+    episode: Int? = null,
     onDismiss: () -> Unit,
     onDownloadStarted: () -> Unit,
     viewModel: ReleaseViewModel = hiltViewModel(),
@@ -61,7 +62,7 @@ fun ReleaseSheet(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    LaunchedEffect(media.id, season) { viewModel.search(media, season) }
+    LaunchedEffect(media.id, season, episode) { viewModel.search(media, season, episode) }
 
     LaunchedEffect(state.startedInfoHash) {
         if (state.startedInfoHash != null) {
@@ -140,17 +141,28 @@ fun ReleaseSheet(
                     }
                 }
 
+                // A 409 means the title isn't out. That is an expected answer,
+                // not a failure, so it gets an explanation rather than an error
+                // with a retry button that could only fail again.
+                state.error?.notReleased == true -> EmptyState(
+                    title = "Not out yet",
+                    message = state.error?.message
+                        ?: "There's nothing to download until this has been released.",
+                )
+
                 state.releases.isEmpty() && state.error != null -> ErrorState(
                     message = state.error?.message ?: "Search failed.",
-                    onRetry = { viewModel.search(media, season) },
+                    onRetry = { viewModel.search(media, season, episode) },
                 )
 
                 state.releases.isEmpty() -> EmptyState(
                     title = "No releases found",
-                    message = if (season != null) {
-                        "No season packs for season $season. Try again later."
-                    } else {
-                        "Nothing on the indexers for this title yet."
+                    message = when {
+                        episode != null ->
+                            "Nothing for episode $episode of season $season yet. " +
+                                "Newly aired episodes can take a while to appear."
+                        season != null -> "No season packs for season $season. Try again later."
+                        else -> "Nothing on the indexers for this title yet."
                     },
                 )
 

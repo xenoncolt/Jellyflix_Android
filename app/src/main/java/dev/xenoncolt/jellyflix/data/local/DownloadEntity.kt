@@ -53,6 +53,12 @@ data class DownloadEntity(
     /** Null for movies; the season number for a series season pack. */
     val season: Int?,
 
+    /**
+     * Set only when a single episode was downloaded rather than a whole season,
+     * which is what a season still airing offers — there is no pack for it yet.
+     */
+    val episode: Int? = null,
+
     val releaseTitle: String,
     val indexer: String,
     val quality: String?,
@@ -85,7 +91,12 @@ data class DownloadEntity(
             state == DownloadState.CheckingFiles ||
             state == DownloadState.Queued
 
-    /** "Pioneer One — Season 1" / "Jungle Book" */
+    /** "Reacher — S04E01" / "Pioneer One — Season 1" / "Jungle Book" */
     val displayTitle: String
-        get() = if (season != null) "$title — Season $season" else title
+        get() = when {
+            season != null && episode != null ->
+                "$title — %s".format("S%02dE%02d".format(season, episode))
+            season != null -> "$title — Season $season"
+            else -> title
+        }
 }

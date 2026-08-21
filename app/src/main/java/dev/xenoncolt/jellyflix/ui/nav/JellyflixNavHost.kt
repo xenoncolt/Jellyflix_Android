@@ -41,6 +41,7 @@ import dev.xenoncolt.jellyflix.ui.grid.GridScreen
 import dev.xenoncolt.jellyflix.player.PlayerScreen
 import dev.xenoncolt.jellyflix.ui.home.HomeScreen
 import dev.xenoncolt.jellyflix.ui.profile.ProfileScreen
+import dev.xenoncolt.jellyflix.ui.releases.EpisodeSheet
 import dev.xenoncolt.jellyflix.ui.releases.ReleaseSheet
 import dev.xenoncolt.jellyflix.ui.search.SearchScreen
 import dev.xenoncolt.jellyflix.ui.theme.Tokens
@@ -78,7 +79,10 @@ fun JellyflixNavHost(
      * fully-loaded [MediaDetail] the detail screen already has, and routing it
      * would mean re-fetching the title just to draw a sheet over it.
      */
-    var releaseTarget by remember { mutableStateOf<Pair<MediaDetail, Int?>?>(null) }
+    var releaseTarget by remember { mutableStateOf<ReleaseTarget?>(null) }
+
+    /** The season whose episode picker is open, for a season still airing. */
+    var episodeTarget by remember { mutableStateOf<Pair<MediaDetail, Int>?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -185,7 +189,10 @@ fun JellyflixNavHost(
                             launchSingleTop = true
                         }
                     },
-                    onDownloadRequest = { media, season -> releaseTarget = media to season },
+                    onDownloadRequest = { media, season ->
+                        releaseTarget = ReleaseTarget(media, season)
+                    },
+                    onPickEpisodes = { media, season -> episodeTarget = media to season },
                     onPlay = { infoHash -> navController.navigate(PlayerRoute(infoHash)) },
                     onSignInRequest = { navController.navigate(ProfileRoute) },
                 )
@@ -196,10 +203,25 @@ fun JellyflixNavHost(
     // Checks GitHub once per launch and shows a prompt only if there's a newer tag.
     UpdateDialog()
 
-    releaseTarget?.let { (media, season) ->
-        ReleaseSheet(
+    episodeTarget?.let { (media, season) ->
+        EpisodeSheet(
             media = media,
-            season = season,
+            seasonNumber = season,
+            onDismiss = { episodeTarget = null },
+            onEpisodePicked = { episode ->
+                // Straight from the episode list into its releases, so picking
+                // one is a single flow rather than two separate journeys.
+                episodeTarget = null
+                releaseTarget = ReleaseTarget(media, season, episode)
+            },
+        )
+    }
+
+    releaseTarget?.let { target ->
+        ReleaseSheet(
+            media = target.media,
+            season = target.season,
+            episode = target.episode,
             onDismiss = { releaseTarget = null },
             onDownloadStarted = {
                 releaseTarget = null
@@ -215,3 +237,17 @@ fun JellyflixNavHost(
 private fun NavHostController.toDetail(media: MediaSummary) {
     navigate(DetailRoute(type = media.mediaType.wire, id = media.id))
 }
+
+/**
+ * What the release sheet is being opened for.
+ *
+ * A triple of nullable ints would be unreadable at the call sites, and [episode]
+ * has to travel all the way to `/api/magnet` — the server resolves a release id
+ * against the search that produced it, so dropping it here would break the
+ * download rather than just the search.
+ */
+private data class ReleaseTarget(
+    val media: MediaDetail,
+    val season: Int?,
+    val episode: Int? = null,
+)

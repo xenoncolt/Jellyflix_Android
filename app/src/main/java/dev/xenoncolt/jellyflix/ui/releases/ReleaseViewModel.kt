@@ -60,16 +60,22 @@ class ReleaseViewModel @Inject constructor(
 
     private var media: MediaDetail? = null
     private var season: Int? = null
+    private var episode: Int? = null
     private var searchJob: Job? = null
 
-    fun search(media: MediaDetail, season: Int?) {
+    fun search(media: MediaDetail, season: Int?, episode: Int? = null) {
         // Same target as the request already in flight — don't restart it.
-        if (this.media?.id == media.id && this.season == season && searchJob?.isActive == true) {
+        if (this.media?.id == media.id &&
+            this.season == season &&
+            this.episode == episode &&
+            searchJob?.isActive == true
+        ) {
             return
         }
 
         this.media = media
         this.season = season
+        this.episode = episode
         searchJob?.cancel()
 
         searchJob = viewModelScope.launch {
@@ -77,10 +83,10 @@ class ReleaseViewModel @Inject constructor(
 
             // Fire both tiers at once; render whichever arrives first.
             val tier2 = async {
-                releases.searchTier2(media.mediaType, media.id, season)
+                releases.searchTier2(media.mediaType, media.id, season, episode)
             }
 
-            when (val tier1 = releases.searchTier1(media.mediaType, media.id, season)) {
+            when (val tier1 = releases.searchTier1(media.mediaType, media.id, season, episode)) {
                 is Outcome.Success -> _state.update {
                     it.copy(
                         loading = false,
@@ -136,7 +142,10 @@ class ReleaseViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(startingGuid = release.guid, startError = null) }
 
-            when (val source = releases.resolve(media.mediaType, media.id, release, season)) {
+            when (
+                val source =
+                    releases.resolve(media.mediaType, media.id, release, season, episode)
+            ) {
                 is Outcome.Failure -> {
                     if (source.error.isStaleGuid) {
                         _state.update {
@@ -145,7 +154,7 @@ class ReleaseViewModel @Inject constructor(
                                 startError = "That release expired. Refreshing the list…",
                             )
                         }
-                        search(media, season)
+                        search(media, season, episode)
                     } else {
                         _state.update {
                             it.copy(startingGuid = null, startError = source.error.message)
@@ -159,6 +168,7 @@ class ReleaseViewModel @Inject constructor(
                         release = release,
                         source = source.data,
                         season = season,
+                        episode = episode,
                     )
                     _state.update {
                         it.copy(

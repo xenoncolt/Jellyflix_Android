@@ -5,6 +5,7 @@ import dev.xenoncolt.jellyflix.core.Outcome
 import dev.xenoncolt.jellyflix.core.runCatchingApi
 import dev.xenoncolt.jellyflix.data.remote.JellyflixApi
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaType
+import dev.xenoncolt.jellyflix.data.remote.dto.SeasonDetail
 import dev.xenoncolt.jellyflix.data.remote.dto.TorrentRelease
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -38,8 +39,15 @@ class ReleaseRepository @Inject constructor(
         type: MediaType,
         id: Int,
         season: Int? = null,
+        episode: Int? = null,
     ): Outcome<List<TorrentRelease>> = runCatchingApi {
-        api.torrents(type = type.wire, id = id, season = season, tier = null).releases
+        api.torrents(
+            type = type.wire,
+            id = id,
+            season = season,
+            episode = episode,
+            tier = null,
+        ).releases
     }
 
     /**
@@ -51,8 +59,25 @@ class ReleaseRepository @Inject constructor(
         type: MediaType,
         id: Int,
         season: Int? = null,
+        episode: Int? = null,
     ): Outcome<List<TorrentRelease>> = runCatchingApi {
-        api.torrents(type = type.wire, id = id, season = season, tier = 2).releases
+        api.torrents(
+            type = type.wire,
+            id = id,
+            season = season,
+            episode = episode,
+            tier = 2,
+        ).releases
+    }
+
+    /**
+     * Episodes of one season, for the picker a still-airing season opens.
+     *
+     * Only episodes with `aired = true` may be offered — the server refuses the
+     * rest with a 409 anyway.
+     */
+    suspend fun season(id: Int, seasonNumber: Int): Outcome<SeasonDetail> = runCatchingApi {
+        api.seasonDetail(id = id, seasonNumber = seasonNumber).season
     }
 
     /**
@@ -107,6 +132,7 @@ class ReleaseRepository @Inject constructor(
         id: Int,
         release: TorrentRelease,
         season: Int? = null,
+        episode: Int? = null,
     ): Outcome<DownloadSource> {
         release.magnetUrl?.takeIf { it.isNotBlank() }?.let {
             return Outcome.Success(DownloadSource.Magnet(it))
@@ -119,6 +145,9 @@ class ReleaseRepository @Inject constructor(
                     id = id,
                     guid = release.guid,
                     season = season,
+                    // Has to match the search that produced the guid, or the
+                    // server looks it up against a different cached result set.
+                    episode = episode,
                 )
                 if (!response.isSuccessful) {
                     throw retrofit2.HttpException(response)
@@ -149,6 +178,7 @@ class ReleaseRepository @Inject constructor(
                     id = id,
                     guid = release.guid,
                     season = season,
+                    episode = episode,
                 ).magnet
                 if (magnet.isBlank()) error("Server returned an empty magnet")
                 DownloadSource.Magnet(magnet)

@@ -58,6 +58,7 @@ import dev.xenoncolt.jellyflix.data.local.DownloadEntity
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaDetail
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaSummary
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaType
+import dev.xenoncolt.jellyflix.data.remote.dto.SeasonAvailability
 import dev.xenoncolt.jellyflix.data.remote.dto.SeasonSummary
 import dev.xenoncolt.jellyflix.ui.components.ErrorState
 import dev.xenoncolt.jellyflix.ui.components.MediaCard
@@ -71,9 +72,10 @@ import dev.xenoncolt.jellyflix.ui.theme.Tokens
 /**
  * Detail screen.
  *
- * Movies get a single action button and series get a season list, each row
- * covering a whole season pack — individual episodes are deliberately not
- * offered, since the server's season search already drops them.
+ * Movies get a single action button; series get a season list. A finished
+ * season offers its pack, a season still airing offers its aired episodes
+ * individually — there is no pack for one mid-run — and a season that hasn't
+ * started offers nothing at all.
  *
  * The action turns into Play once the download has finished, which is the whole
  * point of shipping a player: offering "Download again" on something already on
@@ -85,6 +87,7 @@ fun DetailScreen(
     onBack: () -> Unit,
     onHome: () -> Unit,
     onDownloadRequest: (media: MediaDetail, season: Int?) -> Unit,
+    onPickEpisodes: (media: MediaDetail, season: Int) -> Unit,
     onPlay: (infoHash: String) -> Unit,
     onSignInRequest: () -> Unit,
     modifier: Modifier = Modifier,
@@ -144,9 +147,14 @@ fun DetailScreen(
                     ) { season ->
                         SeasonRow(
                             season = season,
-                            download = downloads.firstOrNull { it.season == season.seasonNumber },
+                            // The pack specifically: an episode download of the
+                            // same season is not the season being "done".
+                            download = downloads.firstOrNull {
+                                it.season == season.seasonNumber && it.episode == null
+                            },
                             onDownload = { onDownloadRequest(media, season.seasonNumber) },
                             onPlay = onPlay,
+                            onPickEpisodes = { onPickEpisodes(media, season.seasonNumber) },
                         )
                     }
                 }
@@ -266,7 +274,21 @@ private fun DetailHero(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (showDownloadButton) {
+                if (showDownloadButton && !media.released) {
+                    // Nothing legitimate exists to download yet, and asking an
+                    // indexer anyway returns whatever fuzzily matched — which is
+                    // how people end up with the wrong file. The server refuses
+                    // with a 409; this stops the request being made at all.
+                    UnreleasedPill(
+                        label = if (media.mediaType == MediaType.MOVIE) {
+                            "Not released yet"
+                        } else {
+                            "Not aired yet"
+                        },
+                        detail = Format.date(media.releaseDate),
+                        modifier = Modifier.weight(1f),
+                    )
+                } else if (showDownloadButton) {
                     // Once it is on disk, watching it is the obvious next thing
                     // to do — downloading it a second time is not. Re-downloading
                     // stays available from the release picker.
@@ -387,6 +409,7 @@ private fun SeasonRow(
     download: DownloadEntity?,
     onDownload: () -> Unit,
     onPlay: (String) -> Unit,
+    onPickEpisodes: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -420,7 +443,14 @@ private fun SeasonRow(
             )
             Text(
                 text = buildString {
-                    if (season.episodeCount > 0) append("${season.episodeCount} episodes")
+                    // Mid-run, how many episodes exist matters more than how many
+                    // are planned — it is the difference between a pack and a
+                    // handful of episodes.
+                    if (season.availability == SeasonAvailability.Airing) {
+                        append("${season.airedEpisodes} of ${season.episodeCount} aired")
+                    } else if (season.episodeCount > 0) {
+                        append("${season.episodeCount} episodes")
+                    }
                     Format.date(season.airDate)?.let {
                         if (isNotEmpty()) append(" · ")
                         append(it.takeLast(4))
@@ -429,6 +459,14 @@ private fun SeasonRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = Tokens.Mist400,
             )
+
+            if (season.availability == SeasonAvailability.Airing) {
+                Text(
+                    text = "Still airing",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Tokens.Accent500,
+                )
+            }
 
             if (download != null && !download.isTerminal) {
                 LinearProgressIndicator(
@@ -445,8 +483,21 @@ private fun SeasonRow(
         val playable = download?.takeIf { it.isTerminal }
         val finished = playable != null
 
+        // A season that has started but not finished has no pack to download,
+        // so it offers its aired episodes instead.
+        if (season.availability == SeasonAvailability.NotAired) {
+            UnreleasedPill(label = "Not aired yet", detail = Format.date(season.airDate))
+            return@Row
+        }
+
         Button(
-            onClick = { if (playable != null) onPlay(playable.infoHash) else onDownload() },
+            onClick = {
+                when {
+                    playable != null -> onPlay(playable.infoHash)
+                    season.availability == SeasonAvailability.Airing -> onPickEpisodes()
+                    else -> onDownload()
+                }
+            },
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = when {
@@ -469,8 +520,9 @@ private fun SeasonRow(
             )
             Text(
                 text = when {
+                    download?.isTerminal == true -> "Play"
+                    season.availability == SeasonAvailability.Airing -> "Episodes"
                     download == null -> "Season"
-                    download.isTerminal -> "Play"
                     else -> "${(download.progress * 100).toInt()}%"
                 },
                 style = MaterialTheme.typography.labelLarge,
@@ -696,6 +748,40 @@ private fun DetailSkeleton() {
                         .height(14.dp)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Stands in for the download button on anything not out yet.
+ *
+ * Amber rather than red: nothing has gone wrong, there is simply nothing to
+ * fetch. Showing the date turns "you can't" into "not until then".
+ */
+@Composable
+private fun UnreleasedPill(
+    label: String,
+    detail: String?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Tokens.Accent500.copy(alpha = 0.15f))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = Tokens.Accent500,
+        )
+        detail?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall,
+                color = Tokens.Mist400,
+            )
         }
     }
 }

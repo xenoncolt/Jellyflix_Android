@@ -47,11 +47,23 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * Adds the episode column.
+     *
+     * Nullable and additive, so every existing row stays valid — an older
+     * download simply has no episode, which is exactly what a season pack means.
+     */
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("ALTER TABLE `downloads` ADD COLUMN `episode` INTEGER")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "movhubs.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             // Still the last resort for a schema that predates the migrations:
             // torrent rows can be rebuilt by re-adding a download.
             .fallbackToDestructiveMigration(dropAllTables = true)

@@ -110,7 +110,27 @@ data class SeasonSummary(
     val posterPath: String? = null,
     val airDate: String? = null,
     val overview: String = "",
-)
+    /** How many episodes have actually aired. Zero means the season hasn't started. */
+    val airedEpisodes: Int = 0,
+    /** Every episode is out, so a season pack exists to download. */
+    val isComplete: Boolean = false,
+) {
+    /**
+     * What the season offers right now.
+     *
+     * A season four episodes into an eight-episode run has no pack to download —
+     * asking an indexer for one returns whatever fuzzily matched instead, which
+     * is how people end up with the wrong thing.
+     */
+    val availability: SeasonAvailability
+        get() = when {
+            airedEpisodes <= 0 -> SeasonAvailability.NotAired
+            isComplete -> SeasonAvailability.Complete
+            else -> SeasonAvailability.Airing
+        }
+}
+
+enum class SeasonAvailability { NotAired, Airing, Complete }
 
 @Immutable
 @Serializable
@@ -168,6 +188,17 @@ data class MediaDetail(
     val similar: List<MediaSummary> = emptyList(),
     val providers: List<WatchProvider> = emptyList(),
     val externalIds: ExternalIds? = null,
+    /**
+     * Whether there is anything legitimate to download yet.
+     *
+     * Computed server-side so the client never date-compares: a film needs both
+     * a `Released` status and a date in the past, since a title can sit at
+     * `Released` with a future date or carry a past date while still in post.
+     * Defaults to true so an older server doesn't hide every download button.
+     */
+    val released: Boolean = true,
+    /** Series only: the most recent episode to air. */
+    val lastAired: LastAired? = null,
 ) {
     val director: String? get() = crew.firstOrNull { it.job.equals("Director", true) }?.name
 
@@ -232,4 +263,48 @@ data class GenresResponse(
 data class ApiError(
     val error: String = "Something went wrong",
     val requiresAuth: Boolean = false,
+)
+
+@Immutable
+@Serializable
+data class LastAired(
+    val season: Int = 0,
+    val episode: Int = 0,
+)
+
+/** One episode, from `/api/media/tv/:id/season/:n`. */
+@Immutable
+@Serializable
+data class EpisodeSummary(
+    val episodeNumber: Int = 0,
+    val seasonNumber: Int = 0,
+    val name: String = "",
+    val overview: String = "",
+    val airDate: String? = null,
+    val stillPath: String? = null,
+    val runtime: Int? = null,
+    /** False for episodes still to come — those are never offered. */
+    val aired: Boolean = false,
+) {
+    /** The scene convention, and how the server builds its search query. */
+    val code: String get() = "S%02dE%02d".format(seasonNumber, episodeNumber)
+}
+
+@Immutable
+@Serializable
+data class SeasonDetail(
+    val seasonNumber: Int = 0,
+    val name: String = "",
+    val overview: String = "",
+    val posterPath: String? = null,
+    val airDate: String? = null,
+    val episodeCount: Int = 0,
+    val airedEpisodes: Int = 0,
+    val isComplete: Boolean = false,
+    val episodes: List<EpisodeSummary> = emptyList(),
+)
+
+@Serializable
+data class SeasonDetailResponse(
+    val season: SeasonDetail = SeasonDetail(),
 )

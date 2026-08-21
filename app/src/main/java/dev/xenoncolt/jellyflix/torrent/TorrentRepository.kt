@@ -85,14 +85,16 @@ class TorrentRepository @Inject constructor(
     /**
      * Adds a release to the session and records it.
      *
-     * For series this is always a season pack — the app never downloads
-     * individual episodes, so [season] identifies the whole pack.
+     * For series, [season] alone means a season pack. [episode] is set when a
+     * season is still airing and has no pack yet, so the aired episodes are
+     * offered one at a time instead.
      */
     suspend fun startDownload(
         media: MediaDetail,
         release: TorrentRelease,
         source: DownloadSource,
         season: Int?,
+        episode: Int? = null,
     ): Result<String> {
         ensureEngineRunning()
 
@@ -118,6 +120,7 @@ class TorrentRepository @Inject constructor(
                 posterPath = media.posterPath,
                 year = media.year,
                 season = season,
+                episode = episode,
                 releaseTitle = release.title,
                 indexer = release.indexer,
                 quality = release.quality,
