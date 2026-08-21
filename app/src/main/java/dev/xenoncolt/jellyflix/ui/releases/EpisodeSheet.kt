@@ -17,11 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xenoncolt.jellyflix.core.Format
+import dev.xenoncolt.jellyflix.data.local.DownloadState
 import dev.xenoncolt.jellyflix.core.Tmdb
 import dev.xenoncolt.jellyflix.data.remote.dto.EpisodeSummary
 import dev.xenoncolt.jellyflix.data.remote.dto.MediaDetail
@@ -60,6 +61,7 @@ fun EpisodeSheet(
     seasonNumber: Int,
     onDismiss: () -> Unit,
     onEpisodePicked: (Int) -> Unit,
+    onPlay: (infoHash: String) -> Unit,
     viewModel: EpisodeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -120,10 +122,20 @@ fun EpisodeSheet(
                         key = { it.episodeNumber },
                         contentType = { "episode" },
                     ) { episode ->
+                        val download = state.downloads[episode.episodeNumber]
+
                         EpisodeRow(
                             episode = episode,
-                            downloaded = episode.episodeNumber in state.downloaded,
-                            onClick = { onEpisodePicked(episode.episodeNumber) },
+                            download = download,
+                            onClick = {
+                                // Once it is on the device, playing it is the
+                                // obvious next thing — not downloading it again.
+                                if (download?.ready == true) {
+                                    onPlay(download.infoHash)
+                                } else if (download?.inProgress != true) {
+                                    onEpisodePicked(episode.episodeNumber)
+                                }
+                            },
                         )
                     }
                 }
@@ -135,7 +147,7 @@ fun EpisodeSheet(
 @Composable
 private fun EpisodeRow(
     episode: EpisodeSummary,
-    downloaded: Boolean,
+    download: EpisodeDownload?,
     onClick: () -> Unit,
 ) {
     Row(
@@ -154,25 +166,35 @@ private fun EpisodeRow(
                     .clip(RoundedCornerShape(12.dp)),
             )
 
-            // On the still rather than in the text, so a long overview can't
-            // push it out of sight.
-            if (downloaded) {
-                Box(
+            when {
+                // A play affordance on the still itself, so a downloaded episode
+                // reads as watchable at a glance rather than needing the label.
+                download?.ready == true -> Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(Tokens.Success500),
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.25f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = "Downloaded",
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play",
                         tint = Color.White,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(32.dp),
                     )
                 }
+
+                download?.inProgress == true -> LinearProgressIndicator(
+                    progress = { download.progress },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp)
+                        .padding(bottom = 6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = Tokens.Brand400,
+                    trackColor = Tokens.Ink700,
+                )
             }
         }
 
@@ -188,17 +210,7 @@ private fun EpisodeRow(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            // The scene code is what the download search actually queries, so it
-            // earns a place next to the air date.
-            Text(
-                text = buildString {
-                    append(episode.code)
-                    Format.date(episode.airDate)?.let { append(" · ").append(it) }
-                    episode.runtime?.takeIf { it > 0 }?.let { append(" · ").append("${it}m") }
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = Tokens.Mist400,
-            )
+            EpisodeStatus(episode = episode, download = download)
 
             if (episode.overview.isNotBlank()) {
                 FadingOverview(text = episode.overview)
@@ -207,6 +219,39 @@ private fun EpisodeRow(
     }
 }
 
+/**
+ * The metadata line, which doubles as the download status.
+ *
+ * The scene code stays visible while there is nothing on disk — it is literally
+ * what the release search queries — and gives way to progress or a resume
+ * position once there is.
+ */
+@Composable
+private fun EpisodeStatus(episode: EpisodeSummary, download: EpisodeDownload?) {
+    val (text, color) = when {
+        download?.resumable == true ->
+            Format.remaining(download.remainingMs) to Tokens.Success500
+
+        download?.ready == true -> "Downloaded · tap to play" to Tokens.Success500
+
+        download?.inProgress == true ->
+            "Downloading ${(download.progress * 100).toInt()}%" to Tokens.Brand300
+
+        download?.state == DownloadState.Failed -> "Download failed · tap to retry" to Tokens.Danger500
+
+        else -> buildString {
+            append(episode.code)
+            Format.date(episode.airDate)?.let { append(" · ").append(it) }
+            episode.runtime?.takeIf { it > 0 }?.let { append(" · ").append("${it}m") }
+        } to Tokens.Mist400
+    }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+    )
+}
 /**
  * Overview text that fades out at the bottom instead of ending in an ellipsis.
  *

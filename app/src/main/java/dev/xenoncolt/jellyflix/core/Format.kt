@@ -41,6 +41,21 @@ object Format {
         }
     }
 
+    /**
+     * How much of something is left to watch: "12 min left", "1h 5m left".
+     *
+     * Not [duration], which is a clock reading for the scrubber — "1:05:00 left"
+     * reads as a runtime rather than a remainder.
+     */
+    fun remaining(millis: Long): String {
+        val minutes = (millis / 60_000).coerceAtLeast(0)
+        if (minutes < 1) return "Less than a minute left"
+        if (minutes < 60) return "$minutes min left"
+        val hours = minutes / 60
+        val rest = minutes % 60
+        return if (rest == 0L) "${hours}h left" else "${hours}h ${rest}m left"
+    }
+
     fun speed(bytesPerSecond: Long): String =
         if (bytesPerSecond <= 0) "—" else "${bytes(bytesPerSecond)}/s"
 

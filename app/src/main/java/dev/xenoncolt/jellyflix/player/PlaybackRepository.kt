@@ -138,6 +138,20 @@ class PlaybackRepository @Inject constructor(
         scope.launch { savePosition(infoHash, file, positionMs, durationMs) }
     }
 
+    /**
+     * Where a download was left off, without touching the filesystem.
+     *
+     * [playableItems] answers the same question but walks the save directory to
+     * do it, which is far too much work for a list row. This reads the one row
+     * Room already has.
+     */
+    suspend fun resumeFor(infoHash: String): PlaybackPositionEntity? =
+        withContext(Dispatchers.IO) {
+            playbackDao.forDownload(infoHash)
+                .filter { !it.isFinished }
+                .maxByOrNull { it.updatedAt }
+        }
+
     suspend fun positionFor(file: File): Long = withContext(Dispatchers.IO) {
         playbackDao.find(file.absolutePath)
             ?.takeIf { !it.isFinished }

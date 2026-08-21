@@ -208,6 +208,10 @@ fun JellyflixNavHost(
             media = media,
             seasonNumber = season,
             onDismiss = { episodeTarget = null },
+            onPlay = { infoHash ->
+                episodeTarget = null
+                navController.navigate(PlayerRoute(infoHash))
+            },
             onEpisodePicked = { episode ->
                 // Straight from the episode list into its releases, so picking
                 // one is a single flow rather than two separate journeys.
