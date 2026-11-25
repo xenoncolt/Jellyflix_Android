@@ -180,7 +180,7 @@ fun ProfileScreen(
                 item(key = "history_header") { SectionHeader(title = "Download history") }
                 items(
                     items = state.history,
-                    key = { "${it.mediaType.wire}_${it.mediaId}_${it.releaseTitle}" },
+                    key = { "history_${it.key}" },
                     contentType = { "history" },
                 ) { record ->
                     HistoryRow(record.title, record.releaseTitle, record.size, record.posterPath)

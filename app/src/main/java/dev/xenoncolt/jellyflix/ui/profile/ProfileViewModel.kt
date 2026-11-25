@@ -126,7 +126,10 @@ class ProfileViewModel @Inject constructor(
             _state.update { it.copy(bookmarks = bookmarks) }
         }
         account.downloadHistory().getOrNull()?.let { history ->
-            _state.update { it.copy(history = history) }
+            // Re-downloading a release logs it again. The rows would look
+            // identical and share a LazyColumn key (which crashes), so keep
+            // one row per release.
+            _state.update { it.copy(history = history.distinctBy { record -> record.key }) }
         }
     }
 

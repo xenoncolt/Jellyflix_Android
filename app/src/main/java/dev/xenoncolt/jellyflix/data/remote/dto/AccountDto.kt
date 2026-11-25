@@ -111,7 +111,14 @@ data class DownloadRecord(
     val season: Int? = null,
     val method: String? = null,
     val createdAt: String? = null,
-)
+) {
+    /**
+     * Identifies the release, not the log entry: the server records every
+     * download, so grabbing the same release twice yields two records that
+     * share this key.
+     */
+    val key: String get() = "${mediaType.wire}:$mediaId:${season ?: ""}:$releaseTitle"
+}
 
 @Serializable
 data class DownloadsResponse(
